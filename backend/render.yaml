@@ -1,0 +1,40 @@
+# Render Blueprint. Deploy via Render dashboard -> New -> Blueprint,
+# pointing at this repo. See ../README.md for the free-tier caveats
+# (no persistent disk, 512MB RAM) that affect ChromaDB storage and OCR.
+services:
+  - type: web
+    name: document-rag-assistant-api
+    runtime: python
+    plan: free          # bump to "starter" (or higher) for a real deploy —
+                         # see README for why the free plan is not enough here
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: LLM_PROVIDER
+        value: openai
+      - key: ALLOWED_ORIGINS
+        value: https://your-frontend.vercel.app
+      - key: CHUNK_SIZE
+        value: "500"
+      - key: CHUNK_OVERLAP
+        value: "50"
+      - key: MAX_CHUNKS_PER_QUERY
+        value: "5"
+      - key: CHROMA_PERSIST_DIR
+        value: /var/data/chroma_db
+      - key: EVAL_DB_PATH
+        value: /var/data/evaluation.db
+      - key: API_KEY
+        sync: false
+      - key: RATE_LIMIT_QUERY
+        value: "20/minute"
+      - key: RATE_LIMIT_UPLOAD
+        value: "10/minute"
+    disk:
+      name: rag-data
+      mountPath: /var/data
+      sizeGB: 1

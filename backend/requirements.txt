@@ -1,0 +1,15 @@
+anthropic
+chromadb
+easyocr
+fastapi
+langchain-core
+langchain-text-splitters
+langgraph
+openai
+pydantic
+pymupdf
+python-dotenv
+python-multipart
+rank-bm25
+slowapi
+uvicorn[standard]
