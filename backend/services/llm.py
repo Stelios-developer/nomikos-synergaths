@@ -11,12 +11,23 @@ from anthropic import Anthropic
 OPENAI_MODEL = "gpt-4o-mini"
 ANTHROPIC_MODEL = "claude-haiku-4-5-20251001"
 
+# Conversation history is only used to interpret follow-ups (coreference,
+# "the second point", etc.) — it must never become a second source of
+# facts. The system prompt says so explicitly so multi-turn chats don't
+# quietly loosen the document-only guarantee.
 SYSTEM_PROMPT = (
     "Απάντα ΜΟΝΟ βάσει των παρακάτω αποσπασμάτων εγγράφων (chunks). "
     "Αν η απάντηση δεν βρίσκεται σε αυτά, πες ρητά ότι δεν βρέθηκε στα έγγραφα. "
     "Μην χρησιμοποιείς εξωτερική γνώση. Αναφέρσου στις πηγές σου με [1], [2] κ.ο.κ., "
-    "αντιστοιχώντας στη σειρά των chunks όπως δίνονται."
+    "αντιστοιχώντας στη σειρά των chunks όπως δίνονται. "
+    "Το ιστορικό της συνομιλίας (αν υπάρχει) είναι μόνο για να καταλαβαίνεις σε τι "
+    "αναφέρεται μια follow-up ερώτηση (π.χ. 'αυτό', 'το δεύτερο σημείο') — ποτέ μην "
+    "αντλείς γεγονότα από εκεί, μόνο από τα chunks της τρέχουσας ερώτησης."
 )
+
+# How many prior turns to include in the generation prompt. Kept small so
+# a long chat session doesn't blow up token usage/cost per message.
+MAX_HISTORY_MESSAGES = 10
 
 _openai_client = None
 _anthropic_client = None
@@ -43,22 +54,32 @@ def _build_context(chunks: list[dict]) -> str:
     return "\n\n".join(parts)
 
 
+def _history_messages(history: list[dict] | None) -> list[dict]:
+    """Normalizes + truncates prior turns to plain {role, content} dicts,
+    the shape both the OpenAI and Anthropic SDKs accept directly."""
+    if not history:
+        return []
+    trimmed = history[-MAX_HISTORY_MESSAGES:]
+    return [{"role": h["role"], "content": h["content"]} for h in trimmed]
+
+
 def provider() -> str:
     return os.getenv("LLM_PROVIDER", "openai").lower()
 
 
-def generate_answer(question: str, chunks: list[dict]) -> str:
-    """Single-shot, non-streaming generation. Used by the basic /query endpoint
-    (step 6) before the LangGraph agent (step 10) and streaming (step 8) land."""
+def generate_answer(question: str, chunks: list[dict], history: list[dict] | None = None) -> str:
+    """Single-shot, non-streaming generation. Used by the LangGraph agent's
+    internal generate node (services/agent.py)."""
     context = _build_context(chunks)
     user_message = f"Έγγραφα:\n{context}\n\nΕρώτηση: {question}"
+    history_msgs = _history_messages(history)
 
     if provider() == "anthropic":
         resp = _anthropic().messages.create(
             model=ANTHROPIC_MODEL,
             max_tokens=1024,
             system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_message}],
+            messages=[*history_msgs, {"role": "user", "content": user_message}],
         )
         return resp.content[0].text
 
@@ -66,27 +87,30 @@ def generate_answer(question: str, chunks: list[dict]) -> str:
         model=OPENAI_MODEL,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
+            *history_msgs,
             {"role": "user", "content": user_message},
         ],
     )
     return resp.choices[0].message.content
 
 
-def stream_answer(question: str, chunks: list[dict]):
+def stream_answer(question: str, chunks: list[dict], history: list[dict] | None = None):
     """
-    Token-by-token generator, used by the SSE /query endpoint (step 8) and
-    the LangGraph agent's generate node (step 10). Yields plain text pieces
-    as they arrive from the provider.
+    Token-by-token generator, used by the SSE /query endpoint. Yields
+    plain text pieces as they arrive from the provider. `history` is the
+    prior turns of the conversation (role/content dicts), used purely to
+    resolve follow-up questions — see SYSTEM_PROMPT.
     """
     context = _build_context(chunks)
     user_message = f"Έγγραφα:\n{context}\n\nΕρώτηση: {question}"
+    history_msgs = _history_messages(history)
 
     if provider() == "anthropic":
         with _anthropic().messages.stream(
             model=ANTHROPIC_MODEL,
             max_tokens=1024,
             system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_message}],
+            messages=[*history_msgs, {"role": "user", "content": user_message}],
         ) as stream:
             for text in stream.text_stream:
                 yield text
@@ -96,6 +120,7 @@ def stream_answer(question: str, chunks: list[dict]):
         model=OPENAI_MODEL,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
+            *history_msgs,
             {"role": "user", "content": user_message},
         ],
         stream=True,

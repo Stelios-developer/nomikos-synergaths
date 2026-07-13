@@ -36,7 +36,7 @@ def test_evaluation_empty_by_default():
 
 
 def test_query_streams_tokens_then_done_event_with_citations_and_eval():
-    def fake_stream(question, chunks):
+    def fake_stream(question, chunks, history=None):
         for tok in ["Deloitte ", "uses ", "AI ", "[1]."]:
             yield tok
 
@@ -57,7 +57,7 @@ def test_query_streams_tokens_then_done_event_with_citations_and_eval():
 
 
 def test_query_emits_error_event_on_generation_failure():
-    def failing_stream(question, chunks):
+    def failing_stream(question, chunks, history=None):
         raise RuntimeError("upstream LLM error")
         yield  # pragma: no cover — makes this a generator
 
@@ -131,3 +131,40 @@ def test_upload_corrupted_pdf_returns_400(tmp_path):
     with open(bad_pdf, "rb") as f:
         resp = client.post("/upload", files={"file": ("corrupt.pdf", f, "application/pdf")})
     assert resp.status_code == 400
+
+
+def test_query_with_history_condenses_and_passes_history_through():
+    captured = {}
+
+    def fake_stream(question, chunks, history=None):
+        captured["stream_question"] = question
+        captured["stream_history"] = history
+        yield "answer text"
+
+    history_payload = [
+        {"role": "user", "content": "What are the 2024 deduction rules?"},
+        {"role": "assistant", "content": "They require X and Y [1]."},
+    ]
+
+    with patch.object(agent, "hybrid_search", return_value=[
+            {"text": "X and Y details.", "filename": "tax.pdf", "page_number": 2, "chunk_index": 0}]) as mock_search, \
+         patch.object(agent, "_openai") as mock_agent_openai, \
+         patch.object(agent, "yes_no", return_value=True), \
+         patch("routers.query.stream_answer", side_effect=fake_stream), \
+         patch.object(evaluator, "score", side_effect=[0.9, 0.9]):
+        mock_agent_openai.return_value.chat.completions.create.return_value.choices = [
+            type("obj", (), {"message": type("m", (), {"content": "standalone: what is X?"})()})()
+        ]
+        with client.stream("POST", "/query", json={
+            "question": "what about X specifically?",
+            "history": history_payload,
+        }) as resp:
+            assert resp.status_code == 200
+            lines = [line for line in resp.iter_lines() if line]
+
+    # retrieval used the condensed query, not the raw follow-up
+    mock_search.assert_called_once_with("standalone: what is X?", document_filter=None)
+    # generation used the raw follow-up question + the history
+    assert captured["stream_question"] == "what about X specifically?"
+    assert captured["stream_history"] == history_payload
+    assert any('"type": "token"' in l for l in lines)

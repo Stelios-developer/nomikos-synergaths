@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { askQuestionStream, type Citation } from '../api/client'
+import { askQuestionStream, type Citation, type HistoryTurn } from '../api/client'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -43,6 +43,14 @@ export default function ChatInterface({ documentFilter, onCitations, onHoverCita
     const question = input.trim()
     if (!question || isStreaming) return
 
+    // Prior completed turns, captured before we push the new (still-empty)
+    // exchange below — this is what lets follow-ups like "and the second
+    // point?" resolve against what was actually said, not against the
+    // in-flight placeholder we're about to add.
+    const history: HistoryTurn[] = messages
+      .filter((m) => m.content.trim().length > 0)
+      .map((m) => ({ role: m.role, content: m.content }))
+
     setMessages((prev) => [...prev, { role: 'user', content: question }, { role: 'assistant', content: '' }])
     setInput('')
     setIsRetrieving(true)
@@ -57,7 +65,7 @@ export default function ChatInterface({ documentFilter, onCitations, onHoverCita
 
     try {
       let firstToken = true
-      const { citations } = await askQuestionStream(question, documentFilter ?? undefined, (token) => {
+      const { citations } = await askQuestionStream(question, documentFilter ?? undefined, history, (token) => {
         if (firstToken) {
           setIsRetrieving(false)
           setIsStreaming(true)

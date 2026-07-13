@@ -60,3 +60,35 @@ def test_score_falls_back_to_0_5_on_unparseable_response(monkeypatch):
     ]
     monkeypatch.setattr(llm, "_openai", lambda: fake_client)
     assert llm.score("rate this") == 0.5
+
+
+def test_history_messages_empty_when_no_history():
+    assert llm._history_messages(None) == []
+    assert llm._history_messages([]) == []
+
+
+def test_history_messages_truncates_to_max():
+    long_history = [{"role": "user", "content": f"msg{i}"} for i in range(20)]
+    result = llm._history_messages(long_history)
+    assert len(result) == llm.MAX_HISTORY_MESSAGES
+    assert result[-1]["content"] == "msg19"  # keeps the most recent turns
+
+
+def test_generate_answer_includes_history_in_openai_messages(monkeypatch):
+    from unittest.mock import MagicMock
+    fake_client = MagicMock()
+    fake_client.chat.completions.create.return_value.choices = [
+        MagicMock(message=MagicMock(content="the answer"))
+    ]
+    monkeypatch.setattr(llm, "_openai", lambda: fake_client)
+    monkeypatch.delenv("LLM_PROVIDER", raising=False)
+
+    history = [{"role": "user", "content": "earlier question"}, {"role": "assistant", "content": "earlier answer"}]
+    result = llm.generate_answer("follow-up question", [], history)
+
+    assert result == "the answer"
+    sent_messages = fake_client.chat.completions.create.call_args.kwargs["messages"]
+    assert sent_messages[0]["role"] == "system"
+    assert sent_messages[1] == history[0]
+    assert sent_messages[2] == history[1]
+    assert "follow-up question" in sent_messages[3]["content"]

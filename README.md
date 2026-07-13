@@ -77,8 +77,13 @@ every push/PR once this is pushed to GitHub.
 ## API
 
 - `POST /upload` — multipart PDF upload. Returns `{filename, chunk_count, method}`.
-- `POST /query` — SSE stream. Body: `{question, document_filter?}`. Emits
-  `{"type":"token","content":...}` events, then `{"type":"done","citations":[...],"eval":{...}}`.
+- `POST /query` — SSE stream. Body: `{question, document_filter?, history?}`, where
+  `history` is `[{role: "user"|"assistant", content}, ...]` for prior turns (oldest
+  first). Emits `{"type":"token","content":...}` events, then
+  `{"type":"done","citations":[...],"eval":{...}}`. History is used to resolve
+  follow-ups (a condense step rewrites e.g. "and the second point?" into a standalone
+  search query — see `services/agent.py`) and to give the model conversational
+  context when generating — it never becomes a source of facts on its own.
 - `GET /documents` — list uploaded PDFs with chunk counts.
 - `DELETE /documents/{filename}` — remove a document and its chunks.
 - `GET /evaluation` — aggregated faithfulness/relevance scores + last 10 queries.

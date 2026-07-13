@@ -34,6 +34,11 @@ export interface EvalScores {
   relevance: number
 }
 
+export interface HistoryTurn {
+  role: 'user' | 'assistant'
+  content: string
+}
+
 type StreamEvent =
   | { type: 'token'; content: string }
   | { type: 'done'; citations: Citation[]; eval: EvalScores | null }
@@ -77,12 +82,13 @@ export async function deleteDocument(filename: string): Promise<void> {
 export async function askQuestionStream(
   question: string,
   documentFilter: string | undefined,
+  history: HistoryTurn[],
   onToken: (content: string) => void,
 ): Promise<{ citations: Citation[]; evalScores: EvalScores | null }> {
   const res = await fetch(`${BASE_URL}/query`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
-    body: JSON.stringify({ question, document_filter: documentFilter }),
+    body: JSON.stringify({ question, document_filter: documentFilter, history }),
   })
 
   if (!res.ok || !res.body) {

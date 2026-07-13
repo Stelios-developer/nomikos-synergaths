@@ -1,6 +1,6 @@
 """
-LangGraph agent: retrieve -> evaluate -> rephrase (loop, max 2 iterations)
--> generate.
+LangGraph agent: [condense follow-up] -> retrieve -> evaluate -> rephrase
+(loop, max 2 iterations) -> generate.
 
 Design note on streaming: LangGraph node functions return plain state
 dicts, which doesn't naturally carry token-by-token output out to an
@@ -15,6 +15,14 @@ right before generation. The router then streams the final answer via
 services.llm.stream_answer. Both paths share the same node logic, so
 retrieval behavior never drifts between the streaming and non-streaming
 routes — only how generation is invoked differs.
+
+Design note on conversation history: history only ever affects two
+things — (1) a one-off "condense" LLM call that rewrites a follow-up
+question (e.g. "and the second point?") into a standalone query *for
+retrieval purposes only*, and (2) the final generation prompt, so the
+model can resolve what the follow-up refers to. It never changes what
+counts as ground truth — generation is still restricted to whatever
+chunks retrieval actually returns for the (condensed) query.
 """
 from typing import TypedDict
 
@@ -24,16 +32,42 @@ from services.retrieval import hybrid_search
 from services.llm import yes_no, generate_answer, _openai, OPENAI_MODEL
 
 MAX_ITERATIONS = 2
+HISTORY_TURNS_FOR_CONDENSING = 6  # ~3 exchanges of context is enough to resolve a follow-up
 
 
 class AgentState(TypedDict):
     question: str            # current (possibly rephrased) query used for retrieval
-    original_question: str   # always used for the final generation prompt
+    original_question: str   # raw user question, always used for the final generation prompt
     document_filter: str | None
+    history: list[dict]
     chunks: list[dict]
     answer: str
     iteration: int
     should_retry: bool
+
+
+def _condense_question(question: str, history: list[dict]) -> str:
+    """Rewrites a follow-up question into a standalone one for retrieval,
+    using recent conversation history. No-ops (and costs nothing) when
+    there's no history — the common single-turn case."""
+    if not history:
+        return question
+
+    recent = history[-HISTORY_TURNS_FOR_CONDENSING:]
+    history_text = "\n".join(f"{h['role']}: {h['content']}" for h in recent)
+    prompt = (
+        f"Ιστορικό συνομιλίας:\n{history_text}\n\nΝέα ερώτηση: {question}\n\n"
+        "Αν η νέα ερώτηση αναφέρεται σε κάτι από το ιστορικό (π.χ. 'αυτό', 'το δεύτερο σημείο', "
+        "'και για...'), ξαναδιατύπωσέ την ως αυτόνομη ερώτηση που βγάζει νόημα μόνη της, χρήσιμη "
+        "για αναζήτηση σε έγγραφα. Αν είναι ήδη αυτόνομη, επίστρεψέ την ως έχει. "
+        "Απάντα ΜΟΝΟ με την τελική ερώτηση, χωρίς επιπλέον σχόλια."
+    )
+    resp = _openai().chat.completions.create(
+        model=OPENAI_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=100,
+    )
+    return resp.choices[0].message.content.strip()
 
 
 def _retrieve(state: AgentState) -> AgentState:
@@ -71,7 +105,7 @@ def _rephrase(state: AgentState) -> AgentState:
 
 
 def _generate(state: AgentState) -> AgentState:
-    answer = generate_answer(state["original_question"], state["chunks"])
+    answer = generate_answer(state["original_question"], state["chunks"], state["history"])
     return {**state, "answer": answer}
 
 
@@ -107,11 +141,14 @@ def get_graph():
     return _compiled_graph
 
 
-def _initial_state(question: str, document_filter: str | None) -> AgentState:
+def _initial_state(question: str, document_filter: str | None, history: list[dict] | None) -> AgentState:
+    history = history or []
+    search_question = _condense_question(question, history)
     return {
-        "question": question,
+        "question": search_question,
         "original_question": question,
         "document_filter": document_filter,
+        "history": history,
         "chunks": [],
         "answer": "",
         "iteration": 0,
@@ -119,18 +156,22 @@ def _initial_state(question: str, document_filter: str | None) -> AgentState:
     }
 
 
-def run_agent(question: str, document_filter: str | None = None) -> AgentState:
+def run_agent(question: str, document_filter: str | None = None, history: list[dict] | None = None) -> AgentState:
     """Full agent run (non-streaming). Returns final state, including `answer`."""
-    return get_graph().invoke(_initial_state(question, document_filter))
+    return get_graph().invoke(_initial_state(question, document_filter, history))
 
 
-def agentic_retrieve(question: str, document_filter: str | None = None) -> tuple[str, list[dict], int]:
+def agentic_retrieve(
+    question: str,
+    document_filter: str | None = None,
+    history: list[dict] | None = None,
+) -> tuple[str, list[dict], int]:
     """
-    Runs retrieve -> evaluate -> rephrase (same node functions as the
-    graph), stopping right before generation. Returns
+    Runs [condense] -> retrieve -> evaluate -> rephrase (same node
+    functions as the graph), stopping right before generation. Returns
     (final_query_used, chunks, iterations_taken).
     """
-    state = _initial_state(question, document_filter)
+    state = _initial_state(question, document_filter, history)
     state = _retrieve(state)
     state = _evaluate(state)
     while state["should_retry"]:
