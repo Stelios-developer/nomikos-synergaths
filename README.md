@@ -1,5 +1,8 @@
 # Document RAG Assistant
 
+[![CI](https://github.com/YOUR_GITHUB_USERNAME/document-rag-assistant/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_GITHUB_USERNAME/document-rag-assistant/actions/workflows/ci.yml)
+*(replace `YOUR_GITHUB_USERNAME` after pushing to GitHub — the badge is dead until then)*
+
 Full-stack RAG system: upload PDFs (digital or scanned), ask questions in natural
 language, get streamed answers grounded strictly in the uploaded documents with
 page-level citations.
@@ -51,6 +54,26 @@ deliberately. Vite 8's default Rolldown (Rust) bundler crashed in the sandbox th
 was built in — if you hit a similar native-binary crash in your own environment,
 this pin is why, and it's safe to try upgrading later.
 
+## Testing
+
+```bash
+cd backend
+pip install -r requirements.txt -r requirements-dev.txt
+pytest --cov=services --cov=routers --cov=db --cov-report=term-missing
+```
+
+39 tests, ~86% coverage on `services`/`routers`/`db`. Every LLM and embedding call is
+mocked (no API keys or network calls needed to run the suite) — this covers ingestion,
+hybrid retrieval + RRF math, all three LangGraph agent branches (immediate success,
+retry-then-succeed, max-iterations cap), the evaluator, and the API layer including
+auth and rate limiting. `services/ocr.py` and the live-network parts of `services/llm.py`
+are intentionally excluded — those were verified manually during development (see the
+build history) rather than unit tested, since exercising EasyOCR/real streaming
+responses meaningfully requires the actual model weights or a live API key.
+
+CI (`.github/workflows/ci.yml`) runs this suite plus a frontend typecheck + build on
+every push/PR once this is pushed to GitHub.
+
 ## API
 
 - `POST /upload` — multipart PDF upload. Returns `{filename, chunk_count, method}`.
@@ -76,9 +99,10 @@ this pin is why, and it's safe to try upgrading later.
 - **EasyOCR needs more RAM than Render's free 512MB tier gives you** (it's PyTorch-based).
   Scanned-PDF uploads will likely fail or time out on the free tier — either upgrade
   the plan or swap in a lighter OCR path (e.g. Tesseract) if you need to stay free.
-- **No auth/rate limiting.** The API as built is open — add an API key check or rate
-  limit before sharing a public URL, since every `/upload` and `/query` call spends
-  your OpenAI/Anthropic credits.
+- **Auth is opt-in.** Set `API_KEY` in the backend `.env` (and `VITE_API_KEY` in the
+  frontend) before sharing a public URL — without it, every route except `/health` is
+  open. Rate limits (`RATE_LIMIT_QUERY`, `RATE_LIMIT_UPLOAD`) are on by default
+  (20/min and 10/min per IP) regardless of whether auth is configured.
 - **Self-evaluation bias**: faithfulness/relevance scores use the same model
   (`gpt-4o-mini`) that generates the answers, which tends to rate itself favorably.
   Treat the eval dashboard as a directional signal, not a rigorous benchmark.
