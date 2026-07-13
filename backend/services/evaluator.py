@@ -1,8 +1,9 @@
 """
 Evaluation layer: faithfulness + context-relevance scoring via LLM
-judgment (gpt-4o-mini, same as services.llm.score — cheap, no separate
-evaluation model needed per the brief). Scores persist to SQLite for
-simplicity; GET /evaluation aggregates from the same table.
+judgment (services.llm.score — follows LLM_PROVIDER, same model that
+generated the answer, no separate evaluation model needed). Scores
+persist to SQLite for simplicity; GET /evaluation aggregates from the
+same table.
 """
 import os
 import sqlite3

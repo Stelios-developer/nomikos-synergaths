@@ -29,7 +29,7 @@ from typing import TypedDict
 from langgraph.graph import StateGraph, END
 
 from services.retrieval import hybrid_search
-from services.llm import yes_no, generate_answer, _openai, OPENAI_MODEL
+from services.llm import yes_no, generate_answer, complete
 
 MAX_ITERATIONS = 2
 HISTORY_TURNS_FOR_CONDENSING = 6  # ~3 exchanges of context is enough to resolve a follow-up
@@ -62,12 +62,7 @@ def _condense_question(question: str, history: list[dict]) -> str:
         "για αναζήτηση σε έγγραφα. Αν είναι ήδη αυτόνομη, επίστρεψέ την ως έχει. "
         "Απάντα ΜΟΝΟ με την τελική ερώτηση, χωρίς επιπλέον σχόλια."
     )
-    resp = _openai().chat.completions.create(
-        model=OPENAI_MODEL,
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=100,
-    )
-    return resp.choices[0].message.content.strip()
+    return complete(prompt, max_tokens=100)
 
 
 def _retrieve(state: AgentState) -> AgentState:
@@ -95,12 +90,7 @@ def _rephrase(state: AgentState) -> AgentState:
         "Επαναδιατύπωσέ την σε μία εναλλακτική διατύπωση που θα βοηθήσει την αναζήτηση να βρει "
         "πιο σχετικό περιεχόμενο. Απάντα ΜΟΝΟ με την επαναδιατυπωμένη ερώτηση, χωρίς επιπλέον σχόλια."
     )
-    resp = _openai().chat.completions.create(
-        model=OPENAI_MODEL,
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=100,
-    )
-    rephrased = resp.choices[0].message.content.strip()
+    rephrased = complete(prompt, max_tokens=100)
     return {**state, "question": rephrased, "iteration": state["iteration"] + 1}
 
 

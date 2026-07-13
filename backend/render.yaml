@@ -15,7 +15,7 @@ services:
       - key: ANTHROPIC_API_KEY
         sync: false
       - key: LLM_PROVIDER
-        value: openai
+        value: anthropic
       - key: ALLOWED_ORIGINS
         value: https://your-frontend.vercel.app
       - key: CHUNK_SIZE

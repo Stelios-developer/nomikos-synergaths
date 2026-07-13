@@ -148,13 +148,10 @@ def test_query_with_history_condenses_and_passes_history_through():
 
     with patch.object(agent, "hybrid_search", return_value=[
             {"text": "X and Y details.", "filename": "tax.pdf", "page_number": 2, "chunk_index": 0}]) as mock_search, \
-         patch.object(agent, "_openai") as mock_agent_openai, \
+         patch.object(agent, "complete", return_value="standalone: what is X?"), \
          patch.object(agent, "yes_no", return_value=True), \
          patch("routers.query.stream_answer", side_effect=fake_stream), \
          patch.object(evaluator, "score", side_effect=[0.9, 0.9]):
-        mock_agent_openai.return_value.chat.completions.create.return_value.choices = [
-            type("obj", (), {"message": type("m", (), {"content": "standalone: what is X?"})()})()
-        ]
         with client.stream("POST", "/query", json={
             "question": "what about X specifically?",
             "history": history_payload,

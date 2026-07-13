@@ -92,3 +92,71 @@ def test_generate_answer_includes_history_in_openai_messages(monkeypatch):
     assert sent_messages[1] == history[0]
     assert sent_messages[2] == history[1]
     assert "follow-up question" in sent_messages[3]["content"]
+
+
+def test_complete_uses_openai_by_default(monkeypatch):
+    from unittest.mock import MagicMock
+    fake_client = MagicMock()
+    fake_client.chat.completions.create.return_value.choices = [
+        MagicMock(message=MagicMock(content="  hi there  "))
+    ]
+    monkeypatch.setattr(llm, "_openai", lambda: fake_client)
+    monkeypatch.delenv("LLM_PROVIDER", raising=False)
+
+    result = llm.complete("say hi", max_tokens=5)
+
+    assert result == "hi there"  # stripped
+    fake_client.chat.completions.create.assert_called_once_with(
+        model=llm.OPENAI_MODEL,
+        messages=[{"role": "user", "content": "say hi"}],
+        max_tokens=5,
+    )
+
+
+def test_complete_uses_anthropic_when_provider_set(monkeypatch):
+    from unittest.mock import MagicMock
+    fake_client = MagicMock()
+    fake_client.messages.create.return_value.content = [MagicMock(text="  hi from claude  ")]
+    monkeypatch.setattr(llm, "_anthropic", lambda: fake_client)
+    monkeypatch.setenv("LLM_PROVIDER", "anthropic")
+
+    result = llm.complete("say hi", max_tokens=5)
+
+    assert result == "hi from claude"
+    fake_client.messages.create.assert_called_once_with(
+        model=llm.ANTHROPIC_MODEL,
+        max_tokens=5,
+        messages=[{"role": "user", "content": "say hi"}],
+    )
+
+
+def test_yes_no_and_score_follow_anthropic_provider(monkeypatch):
+    from unittest.mock import MagicMock
+    fake_client = MagicMock()
+    fake_client.messages.create.return_value.content = [MagicMock(text="YES")]
+    monkeypatch.setattr(llm, "_anthropic", lambda: fake_client)
+    monkeypatch.setenv("LLM_PROVIDER", "anthropic")
+
+    assert llm.yes_no("does this suffice?") is True
+    fake_client.messages.create.assert_called_with(
+        model=llm.ANTHROPIC_MODEL, max_tokens=5,
+        messages=[{"role": "user", "content": "does this suffice?"}],
+    )
+
+    fake_client.messages.create.return_value.content = [MagicMock(text="0.75")]
+    assert llm.score("rate this") == 0.75
+
+
+def test_generate_answer_uses_anthropic_when_configured(monkeypatch):
+    from unittest.mock import MagicMock
+    fake_client = MagicMock()
+    fake_client.messages.create.return_value.content = [MagicMock(text="claude's answer [1].")]
+    monkeypatch.setattr(llm, "_anthropic", lambda: fake_client)
+    monkeypatch.setenv("LLM_PROVIDER", "anthropic")
+
+    result = llm.generate_answer("what is x?", [{"filename": "a.pdf", "page_number": 1, "text": "x is y"}])
+
+    assert result == "claude's answer [1]."
+    call_kwargs = fake_client.messages.create.call_args.kwargs
+    assert call_kwargs["model"] == llm.ANTHROPIC_MODEL
+    assert call_kwargs["system"] == llm.SYSTEM_PROMPT

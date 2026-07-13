@@ -1,7 +1,9 @@
 """
 Thin wrapper around OpenAI / Anthropic so the rest of the app (agent,
-evaluator, simple query endpoint) doesn't care which provider is active.
-Switch via LLM_PROVIDER=openai|anthropic in .env.
+evaluator, query endpoint) doesn't care which provider is active.
+Switch via LLM_PROVIDER=openai|anthropic in .env — every LLM call in the
+app (generation, the agent's evaluate/rephrase/condense steps, and the
+faithfulness/relevance evaluator) follows that one setting.
 """
 import os
 
@@ -65,6 +67,31 @@ def _history_messages(history: list[dict] | None) -> list[dict]:
 
 def provider() -> str:
     return os.getenv("LLM_PROVIDER", "openai").lower()
+
+
+def complete(prompt: str, max_tokens: int = 100) -> str:
+    """
+    Single-turn, no-system-prompt completion, following LLM_PROVIDER just
+    like generate_answer/stream_answer. Used for every small utility call
+    in the app that doesn't need the full document-grounded system prompt:
+    the agent's evaluate (yes/no), rephrase, and condense-question steps
+    (services/agent.py), and the faithfulness/relevance evaluator
+    (services/evaluator.py).
+    """
+    if provider() == "anthropic":
+        resp = _anthropic().messages.create(
+            model=ANTHROPIC_MODEL,
+            max_tokens=max_tokens,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return resp.content[0].text.strip()
+
+    resp = _openai().chat.completions.create(
+        model=OPENAI_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=max_tokens,
+    )
+    return resp.choices[0].message.content.strip()
 
 
 def generate_answer(question: str, chunks: list[dict], history: list[dict] | None = None) -> str:
@@ -132,26 +159,16 @@ def stream_answer(question: str, chunks: list[dict], history: list[dict] | None 
 
 
 def yes_no(prompt: str) -> bool:
-    """Cheap YES/NO judgment call, used by the LangGraph evaluate node (step 10)
-    and evaluator (step 12). Defaults to gpt-4o-mini regardless of LLM_PROVIDER
-    per the brief ('evaluation calls use gpt-4o-mini — cheap')."""
-    resp = _openai().chat.completions.create(
-        model=OPENAI_MODEL,
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=5,
-    )
-    answer = resp.choices[0].message.content.strip().upper()
+    """Cheap YES/NO judgment call, used by the LangGraph evaluate node.
+    Follows LLM_PROVIDER via complete()."""
+    answer = complete(prompt, max_tokens=5).upper()
     return answer.startswith("YES")
 
 
 def score(prompt: str) -> float:
-    """Asks for a 0.0-1.0 score, used by evaluator.py (step 12)."""
-    resp = _openai().chat.completions.create(
-        model=OPENAI_MODEL,
-        messages=[{"role": "user", "content": prompt + "\n\nRespond with ONLY a number between 0.0 and 1.0."}],
-        max_tokens=10,
-    )
-    text = resp.choices[0].message.content.strip()
+    """Asks for a 0.0-1.0 score, used by evaluator.py. Follows
+    LLM_PROVIDER via complete()."""
+    text = complete(prompt + "\n\nRespond with ONLY a number between 0.0 and 1.0.", max_tokens=10)
     try:
         return max(0.0, min(1.0, float(text)))
     except ValueError:

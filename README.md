@@ -10,8 +10,10 @@ page-level citations.
 ## Stack
 
 - **Backend**: FastAPI, LangGraph (agentic retrieval), ChromaDB (vectors),
-  rank-bm25 (keyword search), PyMuPDF (PDF text), EasyOCR (scanned PDFs),
-  OpenAI (`text-embedding-3-small`, `gpt-4o-mini`) / Anthropic (Claude) for generation.
+  rank-bm25 (keyword search), PyMuPDF (PDF text), EasyOCR (scanned PDFs).
+  Generation + evaluation default to Anthropic (`claude-haiku-4-5`); embeddings
+  always use OpenAI (`text-embedding-3-small`) regardless of `LLM_PROVIDER`, since
+  Anthropic doesn't offer an embeddings endpoint — see below.
 - **Frontend**: React 18 + TypeScript, Vite, Tailwind CSS. Dark theme, gold accent (`#C9A84C`).
 
 ## Architecture
@@ -31,7 +33,8 @@ Question -> hybrid search (vector + BM25 -> Reciprocal Rank Fusion)
 cd backend
 python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env   # fill in OPENAI_API_KEY (and ANTHROPIC_API_KEY if using Claude)
+cp .env.example .env   # fill in OPENAI_API_KEY (always needed, for embeddings)
+                        # and ANTHROPIC_API_KEY (default LLM_PROVIDER=anthropic)
 uvicorn main:app --reload
 ```
 
@@ -62,14 +65,15 @@ pip install -r requirements.txt -r requirements-dev.txt
 pytest --cov=services --cov=routers --cov=db --cov-report=term-missing
 ```
 
-39 tests, ~86% coverage on `services`/`routers`/`db`. Every LLM and embedding call is
+51 tests, ~89% coverage on `services`/`routers`/`db`. Every LLM and embedding call is
 mocked (no API keys or network calls needed to run the suite) — this covers ingestion,
 hybrid retrieval + RRF math, all three LangGraph agent branches (immediate success,
-retry-then-succeed, max-iterations cap), the evaluator, and the API layer including
-auth and rate limiting. `services/ocr.py` and the live-network parts of `services/llm.py`
-are intentionally excluded — those were verified manually during development (see the
-build history) rather than unit tested, since exercising EasyOCR/real streaming
-responses meaningfully requires the actual model weights or a live API key.
+retry-then-succeed, max-iterations cap), the evaluator, the API layer including auth
+and rate limiting, and both the OpenAI and Anthropic code paths in `services/llm.py`
+(provider switching is asserted directly, not assumed). `services/ocr.py` and the
+streaming-generator internals are intentionally excluded — those were verified
+manually during development rather than unit tested, since exercising EasyOCR or a
+real token stream meaningfully requires the actual model weights or a live API key.
 
 CI (`.github/workflows/ci.yml`) runs this suite plus a frontend typecheck + build on
 every push/PR once this is pushed to GitHub.
@@ -108,6 +112,8 @@ every push/PR once this is pushed to GitHub.
   frontend) before sharing a public URL — without it, every route except `/health` is
   open. Rate limits (`RATE_LIMIT_QUERY`, `RATE_LIMIT_UPLOAD`) are on by default
   (20/min and 10/min per IP) regardless of whether auth is configured.
-- **Self-evaluation bias**: faithfulness/relevance scores use the same model
-  (`gpt-4o-mini`) that generates the answers, which tends to rate itself favorably.
+- **Self-evaluation bias**: faithfulness/relevance scores use the same provider/model
+  configured for generation (`LLM_PROVIDER`), which tends to rate itself favorably.
   Treat the eval dashboard as a directional signal, not a rigorous benchmark.
+- **Embeddings are always OpenAI**, even when `LLM_PROVIDER=anthropic` — Anthropic
+  doesn't have an embeddings API, so `OPENAI_API_KEY` is required either way.
