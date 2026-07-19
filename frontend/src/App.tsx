@@ -6,15 +6,17 @@ import CitationsPanel from './components/CitationsPanel'
 import EvalDashboard from './components/EvalDashboard'
 import ActionAgent from './components/ActionAgent'
 import Supervisor from './components/Supervisor'
+import AdvisoryPanel from './components/AdvisoryPanel'
 import { fetchConfig, type Citation } from './api/client'
 
 type RightTab = 'sources' | 'evaluation'
-type AppMode = 'documents' | 'agent' | 'supervisor'
+type AppMode = 'documents' | 'agent' | 'supervisor' | 'panel'
 
 const NAV_ITEMS: { mode: AppMode; icon: string; label: string }[] = [
   { mode: 'documents', icon: '📄', label: 'Document Assistant' },
   { mode: 'agent', icon: '⚡', label: 'Action Agent' },
   { mode: 'supervisor', icon: '🧭', label: 'Supervisor' },
+  { mode: 'panel', icon: '⚖️', label: 'Advisory Panel' },
 ]
 
 function App() {
@@ -61,6 +63,10 @@ function App() {
       ) : mode === 'supervisor' ? (
         <div className="flex-1 overflow-hidden">
           <Supervisor agentEnabled={agentEnabled} onUnlocked={() => setAgentEnabled(true)} />
+        </div>
+      ) : mode === 'panel' ? (
+        <div className="flex-1 overflow-hidden">
+          <AdvisoryPanel />
         </div>
       ) : (
         <div className="flex flex-1 overflow-hidden">

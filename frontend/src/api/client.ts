@@ -402,3 +402,76 @@ export async function getPageImageUrl(filename: string, page: number, snippet: s
   const blob = await res.blob()
   return URL.createObjectURL(blob)
 }
+
+// --- Advisory Panel (backend/services/advisory_panel.py) ---
+// Three advisor personas (Aggressive Tax Optimizer, Conservative
+// Compliance Officer, Risk Assessor) run CONCURRENTLY over one shared
+// retrieval, then a Moderator synthesizes their agreement/disagreement.
+// Advisor events arrive in COMPLETION order, not a fixed sequence.
+
+export interface AdvisorAnswer {
+  id: string
+  label: string
+  emoji: string
+  answer: string
+}
+
+export interface PanelResult {
+  moderatorSummary: string
+}
+
+type PanelStreamEvent =
+  | { type: 'citations'; citations: Citation[] }
+  | { type: 'advisor'; id: string; label: string; emoji: string; answer: string }
+  | { type: 'done'; moderator_summary: string }
+
+export interface PanelCallbacks {
+  onCitations: (citations: Citation[]) => void
+  onAdvisor: (advisor: AdvisorAnswer) => void
+}
+
+export async function runAdvisoryPanel(
+  question: string,
+  documentFilter: string | undefined,
+  callbacks: PanelCallbacks,
+): Promise<PanelResult> {
+  const res = await fetch(`${BASE_URL}/panel/run`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...sessionHeaders() },
+    body: JSON.stringify({ question, document_filter: documentFilter }),
+  })
+
+  if (!res.ok || !res.body) {
+    const body = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(body.detail ?? `Request failed: ${res.status}`)
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let result: PanelResult = { moderatorSummary: '' }
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+
+    const events = buffer.split('\n\n')
+    buffer = events.pop() ?? ''
+
+    for (const raw of events) {
+      const line = raw.trim()
+      if (!line.startsWith('data:')) continue
+      const parsed = JSON.parse(line.slice(5).trim()) as PanelStreamEvent
+
+      if (parsed.type === 'citations') callbacks.onCitations(parsed.citations)
+      else if (parsed.type === 'advisor') {
+        callbacks.onAdvisor({ id: parsed.id, label: parsed.label, emoji: parsed.emoji, answer: parsed.answer })
+      } else if (parsed.type === 'done') {
+        result = { moderatorSummary: parsed.moderator_summary }
+      }
+    }
+  }
+
+  return result
+}
