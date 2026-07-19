@@ -8,10 +8,11 @@ import ActionAgent from './components/ActionAgent'
 import Supervisor from './components/Supervisor'
 import AdvisoryPanel from './components/AdvisoryPanel'
 import DebateAgents from './components/DebateAgents'
+import ResearchAgent from './components/ResearchAgent'
 import { fetchConfig, type Citation } from './api/client'
 
 type RightTab = 'sources' | 'evaluation'
-type AppMode = 'documents' | 'agent' | 'supervisor' | 'panel' | 'debate'
+type AppMode = 'documents' | 'agent' | 'supervisor' | 'panel' | 'debate' | 'research'
 
 const NAV_ITEMS: { mode: AppMode; icon: string; label: string }[] = [
   { mode: 'documents', icon: '📄', label: 'Document Assistant' },
@@ -19,6 +20,7 @@ const NAV_ITEMS: { mode: AppMode; icon: string; label: string }[] = [
   { mode: 'supervisor', icon: '🧭', label: 'Supervisor' },
   { mode: 'panel', icon: '⚖️', label: 'Advisory Panel' },
   { mode: 'debate', icon: '🥊', label: 'Debate Agents' },
+  { mode: 'research', icon: '🔬', label: 'Research Agent' },
 ]
 
 function App() {
@@ -73,6 +75,10 @@ function App() {
       ) : mode === 'debate' ? (
         <div className="flex-1 overflow-hidden">
           <DebateAgents />
+        </div>
+      ) : mode === 'research' ? (
+        <div className="flex-1 overflow-hidden">
+          <ResearchAgent />
         </div>
       ) : (
         <div className="flex flex-1 overflow-hidden">

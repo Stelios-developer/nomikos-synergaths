@@ -556,3 +556,75 @@ export async function runDebateAgents(
 
   return result
 }
+
+// --- Multi-hop Research Agent (backend/services/multihop.py) ---
+// Decomposes a compound question into standalone sub-questions, retrieves
+// + Corrective-RAG-grades each CONCURRENTLY, merges the results, and
+// streams one final synthesized answer across all of them.
+
+export interface SubRetrieval {
+  subQuestion: string
+  citations: Citation[]
+}
+
+export interface ResearchResult {
+  citations: Citation[]
+}
+
+type ResearchStreamEvent =
+  | { type: 'subquestions'; subquestions: string[] }
+  | { type: 'subretrieval'; sub_question: string; citations: Citation[] }
+  | { type: 'token'; content: string }
+  | { type: 'done'; citations: Citation[] }
+
+export interface ResearchCallbacks {
+  onSubquestions: (subquestions: string[]) => void
+  onSubretrieval: (sub: SubRetrieval) => void
+  onToken: (content: string) => void
+}
+
+export async function runResearchAgent(
+  question: string,
+  documentFilter: string | undefined,
+  history: HistoryTurn[],
+  callbacks: ResearchCallbacks,
+): Promise<ResearchResult> {
+  const res = await fetch(`${BASE_URL}/research/run`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...sessionHeaders() },
+    body: JSON.stringify({ question, document_filter: documentFilter, history }),
+  })
+
+  if (!res.ok || !res.body) {
+    const body = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(body.detail ?? `Request failed: ${res.status}`)
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let result: ResearchResult = { citations: [] }
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+
+    const events = buffer.split('\n\n')
+    buffer = events.pop() ?? ''
+
+    for (const raw of events) {
+      const line = raw.trim()
+      if (!line.startsWith('data:')) continue
+      const parsed = JSON.parse(line.slice(5).trim()) as ResearchStreamEvent
+
+      if (parsed.type === 'subquestions') callbacks.onSubquestions(parsed.subquestions)
+      else if (parsed.type === 'subretrieval') {
+        callbacks.onSubretrieval({ subQuestion: parsed.sub_question, citations: parsed.citations })
+      } else if (parsed.type === 'token') callbacks.onToken(parsed.content)
+      else if (parsed.type === 'done') result = { citations: parsed.citations }
+    }
+  }
+
+  return result
+}
