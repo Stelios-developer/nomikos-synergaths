@@ -266,3 +266,125 @@ export async function runActionAgent(goal: string, callbacks: AgentCallbacks): P
 
   return result
 }
+
+// --- Supervisor (backend/services/supervisor.py) ---
+// Orchestrates the two subsystems above instead of duplicating either:
+// decides via native tool-calling whether a request needs document
+// retrieval (search_documents -> the RAG pipeline), code execution
+// (run_code -> the Action Agent), or both chained together. The
+// action_* events below are forwarded verbatim from the Action Agent's
+// own trace, so the UI can render a nested sub-trace when it's invoked.
+
+export interface SupervisorResult {
+  summary: string
+  error?: boolean
+}
+
+type SupervisorStreamEvent =
+  | { type: 'route'; tool: 'search_documents' | 'run_code'; input: string }
+  | { type: 'rag_token'; content: string }
+  | { type: 'rag_done'; citations: Citation[] }
+  | { type: 'action_plan'; steps: string[] }
+  | { type: 'action_code'; attempt: number; code: string }
+  | { type: 'action_review'; attempt: number; approved: boolean; feedback: string }
+  | { type: 'action_error'; attempt: number; message: string }
+  | {
+      type: 'action_done'
+      success: boolean
+      stdout: string
+      image_base64: string | null
+      attempts: number
+      summary?: string | null
+      error?: string | null
+      sandbox_backend?: string | null
+    }
+  | { type: 'done'; summary: string; error?: boolean }
+
+export interface SupervisorCallbacks {
+  onRoute: (tool: 'search_documents' | 'run_code', input: string) => void
+  onRagToken: (content: string) => void
+  onRagDone: (citations: Citation[]) => void
+  onActionPlan: (steps: string[]) => void
+  onActionCode: (attempt: number, code: string) => void
+  onActionReview: (attempt: number, approved: boolean, feedback: string) => void
+  onActionError: (attempt: number, message: string) => void
+  onActionDone: (result: AgentResult) => void
+}
+
+export async function runSupervisor(
+  question: string,
+  documentFilter: string | undefined,
+  callbacks: SupervisorCallbacks,
+): Promise<SupervisorResult> {
+  const res = await fetch(`${BASE_URL}/supervisor/run`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ question, document_filter: documentFilter }),
+  })
+
+  if (!res.ok || !res.body) {
+    const body = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(body.detail ?? `Request failed: ${res.status}`)
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let result: SupervisorResult = { summary: '' }
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+
+    const events = buffer.split('\n\n')
+    buffer = events.pop() ?? ''
+
+    for (const raw of events) {
+      const line = raw.trim()
+      if (!line.startsWith('data:')) continue
+      const parsed = JSON.parse(line.slice(5).trim()) as SupervisorStreamEvent
+
+      if (parsed.type === 'route') callbacks.onRoute(parsed.tool, parsed.input)
+      else if (parsed.type === 'rag_token') callbacks.onRagToken(parsed.content)
+      else if (parsed.type === 'rag_done') callbacks.onRagDone(parsed.citations)
+      else if (parsed.type === 'action_plan') callbacks.onActionPlan(parsed.steps)
+      else if (parsed.type === 'action_code') callbacks.onActionCode(parsed.attempt, parsed.code)
+      else if (parsed.type === 'action_review') callbacks.onActionReview(parsed.attempt, parsed.approved, parsed.feedback)
+      else if (parsed.type === 'action_error') callbacks.onActionError(parsed.attempt, parsed.message)
+      else if (parsed.type === 'action_done') {
+        callbacks.onActionDone({
+          success: parsed.success,
+          stdout: parsed.stdout,
+          imageBase64: parsed.image_base64,
+          attempts: parsed.attempts,
+          summary: parsed.summary,
+          error: parsed.error,
+          sandboxBackend: parsed.sandbox_backend,
+        })
+      } else if (parsed.type === 'done') {
+        result = { summary: parsed.summary, error: parsed.error }
+      }
+    }
+  }
+
+  return result
+}
+
+// --- Citation drill-down (backend/routers/documents.py: GET /documents/{filename}/page) ---
+// Renders the original PDF page a citation came from, with the cited
+// excerpt highlighted server-side, and returns a blob object URL for an
+// <img> tag (see components/PdfPageModal.tsx). Callers must revoke the
+// returned URL when done (PdfPageModal does this on unmount/citation change).
+export async function getPageImageUrl(filename: string, page: number, snippet: string): Promise<string> {
+  const params = new URLSearchParams({ page: String(page), snippet })
+  const res = await fetch(`${BASE_URL}/documents/${encodeURIComponent(filename)}/page?${params}`, {
+    headers: authHeaders(),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(body.detail ?? `Request failed: ${res.status}`)
+  }
+  const blob = await res.blob()
+  return URL.createObjectURL(blob)
+}

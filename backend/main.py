@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from routers import upload, documents, query, evaluation, agent_action
+from routers import upload, documents, query, evaluation, agent_action, supervisor
 from services.security import limiter, require_api_key, agent_enabled_for_request
 
 load_dotenv()
@@ -67,3 +67,4 @@ app.include_router(documents.router, dependencies=_auth)
 app.include_router(query.router, dependencies=_auth)
 app.include_router(evaluation.router, dependencies=_auth)
 app.include_router(agent_action.router)
+app.include_router(supervisor.router, dependencies=_auth)

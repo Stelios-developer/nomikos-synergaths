@@ -16,6 +16,11 @@ services.llm.stream_answer. Both paths share the same node logic, so
 retrieval behavior never drifts between the streaming and non-streaming
 routes — only how generation is invoked differs.
 
+`agentic_retrieve_stream` is a third variant of the same loop: a
+generator that also surfaces each rephrase attempt as it happens, for
+callers that want to show retry progress live (e.g. over SSE) rather
+than only getting the final result.
+
 Design note on conversation history: history only ever affects two
 things — (1) a one-off "condense" LLM call that rewrites a follow-up
 question (e.g. "and the second point?") into a standalone query *for
@@ -169,3 +174,26 @@ def agentic_retrieve(
         state = _retrieve(state)
         state = _evaluate(state)
     return state["question"], state["chunks"], state["iteration"]
+
+
+def agentic_retrieve_stream(
+    question: str,
+    document_filter: str | None = None,
+    history: list[dict] | None = None,
+):
+    """
+    Generator twin of agentic_retrieve, for callers that want to surface
+    the rephrase/retry loop as it happens rather than only getting the
+    final result. Yields:
+      ("status", {"iteration": int, "query": str})  once per rephrase attempt
+      ("result", (final_query_used, chunks, iterations_taken))  exactly once, last
+    """
+    state = _initial_state(question, document_filter, history)
+    state = _retrieve(state)
+    state = _evaluate(state)
+    while state["should_retry"]:
+        state = _rephrase(state)
+        yield ("status", {"iteration": state["iteration"], "query": state["question"]})
+        state = _retrieve(state)
+        state = _evaluate(state)
+    yield ("result", (state["question"], state["chunks"], state["iteration"]))

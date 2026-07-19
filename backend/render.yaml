@@ -42,6 +42,8 @@ services:
         value: "10/minute"
       - key: RATE_LIMIT_AGENT
         value: "10/minute"
+      - key: RATE_LIMIT_SUPERVISOR
+        value: "5/minute"
     disk:
       name: rag-data
       mountPath: /var/data

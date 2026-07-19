@@ -37,6 +37,9 @@ RATE_LIMIT_UPLOAD = os.getenv("RATE_LIMIT_UPLOAD", "10/minute")
 # Tighter than /query by default: each run does an LLM call *and* spawns a
 # subprocess (services/sandbox.py), so it's the most expensive route in the app.
 RATE_LIMIT_AGENT = os.getenv("RATE_LIMIT_AGENT", "10/minute")
+# The Supervisor can chain retrieval AND code execution in one request —
+# the single most expensive route in the app — so it defaults tighter still.
+RATE_LIMIT_SUPERVISOR = os.getenv("RATE_LIMIT_SUPERVISOR", "5/minute")
 
 limiter = Limiter(key_func=get_remote_address)
 
