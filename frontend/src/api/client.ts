@@ -475,3 +475,84 @@ export async function runAdvisoryPanel(
 
   return result
 }
+
+// --- Debate Agents (backend/services/debate.py) ---
+// Two personas argue OPPOSING, document-grounded positions across
+// multiple rounds of DIRECT rebuttal (unlike the Panel's independent
+// parallel opinions), then a Judge rules on which side is better
+// supported. Both sides within a round run CONCURRENTLY, so argument
+// events arrive in completion order, not a fixed left/right sequence.
+
+export interface DebateArgument {
+  round: number
+  side: 'for' | 'against'
+  label: string
+  emoji: string
+  text: string
+}
+
+export interface DebateResult {
+  verdict: string
+}
+
+type DebateStreamEvent =
+  | { type: 'citations'; citations: Citation[] }
+  | { type: 'argument'; side: 'for' | 'against'; round: number; label: string; emoji: string; text: string }
+  | { type: 'verdict'; summary: string }
+
+export interface DebateCallbacks {
+  onCitations: (citations: Citation[]) => void
+  onArgument: (arg: DebateArgument) => void
+}
+
+export async function runDebateAgents(
+  question: string,
+  documentFilter: string | undefined,
+  callbacks: DebateCallbacks,
+): Promise<DebateResult> {
+  const res = await fetch(`${BASE_URL}/debate/run`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...sessionHeaders() },
+    body: JSON.stringify({ question, document_filter: documentFilter }),
+  })
+
+  if (!res.ok || !res.body) {
+    const body = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(body.detail ?? `Request failed: ${res.status}`)
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let result: DebateResult = { verdict: '' }
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+
+    const events = buffer.split('\n\n')
+    buffer = events.pop() ?? ''
+
+    for (const raw of events) {
+      const line = raw.trim()
+      if (!line.startsWith('data:')) continue
+      const parsed = JSON.parse(line.slice(5).trim()) as DebateStreamEvent
+
+      if (parsed.type === 'citations') callbacks.onCitations(parsed.citations)
+      else if (parsed.type === 'argument') {
+        callbacks.onArgument({
+          round: parsed.round,
+          side: parsed.side,
+          label: parsed.label,
+          emoji: parsed.emoji,
+          text: parsed.text,
+        })
+      } else if (parsed.type === 'verdict') {
+        result = { verdict: parsed.summary }
+      }
+    }
+  }
+
+  return result
+}
