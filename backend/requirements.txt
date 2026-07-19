@@ -16,5 +16,6 @@ pymupdf
 python-dotenv
 python-multipart
 rank-bm25
+sentence-transformers
 slowapi
 uvicorn[standard]

@@ -72,6 +72,14 @@ function App() {
               <h2 className="mb-2 text-xs uppercase tracking-wide text-gray-500">Documents</h2>
               <DocumentList ref={docListRef} selectedFilename={selectedFilename} onSelect={setSelectedFilename} />
             </div>
+
+            {/* Session isolation is on by default with no login — this is
+                the only place a visitor is told their uploads are private
+                to their own browser (see utils/session.ts, services/session_scope.py). */}
+            <p className="text-[10px] leading-relaxed text-gray-600">
+              🔒 Documents you upload are only visible in this browser — no accounts, no shared storage with
+              other visitors.
+            </p>
           </aside>
 
           {/* Chat */}

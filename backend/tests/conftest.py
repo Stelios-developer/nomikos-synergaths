@@ -1,3 +1,4 @@
+import os
 import random
 
 import fitz
@@ -5,19 +6,30 @@ import pytest
 
 import db.chroma_client as chroma_client
 import services.evaluator as evaluator_module
+import services.pdf_storage as pdf_storage_module
+import services.observability as observability_module
 
 
 @pytest.fixture(autouse=True)
 def isolated_storage(tmp_path, monkeypatch):
     """
-    Every test gets its own ChromaDB dir + evaluation SQLite file, and the
-    module-level singletons (db.chroma_client's client/collection) are
-    reset so state never leaks between tests.
+    Every test gets its own ChromaDB dir + evaluation SQLite file + PDF
+    storage dir + observability SQLite file, and the module-level
+    singletons (db.chroma_client's client/collection) are reset so state
+    never leaks between tests. observability.db in particular would
+    otherwise get a row per TestClient(app) request via main.py's
+    observability_middleware — every test file that exercises the app
+    through TestClient, not just test_observability.py, so this has to be
+    a global autouse fixture rather than something local to one test module.
     """
     monkeypatch.setattr(chroma_client, "CHROMA_PERSIST_DIR", str(tmp_path / "chroma"))
     monkeypatch.setattr(chroma_client, "_client", None)
     monkeypatch.setattr(chroma_client, "_collection", None)
     monkeypatch.setattr(evaluator_module, "DB_PATH", str(tmp_path / "evaluation.db"))
+    monkeypatch.setattr(observability_module, "OBS_DB_PATH", str(tmp_path / "observability.db"))
+    pdf_dir = tmp_path / "pdfs"
+    os.makedirs(pdf_dir, exist_ok=True)
+    monkeypatch.setattr(pdf_storage_module, "PDF_STORAGE_DIR", str(pdf_dir))
     yield
 
 
@@ -52,28 +64,16 @@ def scanned_pdf_factory(tmp_path):
 
 
 @pytest.fixture
-def fake_openai_embeddings(monkeypatch):
-    """Patches ingestion._get_openai_client so embed_chunks/embed_query
-    never touch the network."""
+def fake_embeddings(monkeypatch):
+    """Patches ingestion.embed_texts so embed_chunks never loads the real
+    (torch-based) sentence-transformers model."""
     import services.ingestion as ingestion_module
 
-    class FakeEmbeddingItem:
-        def __init__(self, v):
-            self.embedding = v
+    def _fake_embed_texts(texts):
+        return [[random.random() for _ in range(8)] for _ in texts]
 
-    class FakeResp:
-        def __init__(self, n):
-            self.data = [FakeEmbeddingItem([random.random() for _ in range(8)]) for _ in range(n)]
-
-    class FakeEmbeddings:
-        def create(self, model, input):
-            return FakeResp(len(input))
-
-    class FakeClient:
-        embeddings = FakeEmbeddings()
-
-    monkeypatch.setattr(ingestion_module, "_get_openai_client", lambda: FakeClient())
-    return FakeClient()
+    monkeypatch.setattr(ingestion_module, "embed_texts", _fake_embed_texts)
+    return _fake_embed_texts
 
 
 @pytest.fixture(autouse=True)
@@ -86,4 +86,41 @@ def reset_rate_limiter():
         main.app.state.limiter.reset()
     except Exception:
         pass
+    yield
+
+
+@pytest.fixture(autouse=True)
+def isolate_docker_availability_cache():
+    """
+    services.sandbox caches whether Docker is available at module level
+    (by design — probing `docker info`/`docker image inspect` on every
+    single Action Agent run would be wasteful in production). That same
+    caching means once one test exercises the Docker-available branch
+    (mocked True), the cache leaks that True into every later test in the
+    same pytest run — including unrelated ones that just want the default
+    subprocess sandbox. Reset it before every test.
+    """
+    import services.sandbox as sandbox_module
+    sandbox_module.reset_docker_availability_cache()
+    yield
+
+
+@pytest.fixture(autouse=True)
+def isolate_llm_provider(monkeypatch):
+    """
+    main.py's load_dotenv() reads the real backend/.env the first time
+    `main` is imported in the test process (dotenv only sets vars that
+    aren't already present, so it happens exactly once and then lingers
+    for every later test in the same pytest run). If that .env has
+    LLM_PROVIDER=anthropic set — which it does on a normal dev setup,
+    since it's the documented default — every test that assumes the
+    "openai" default (i.e. every test that doesn't explicitly set
+    LLM_PROVIDER itself) would silently start hitting the real Anthropic
+    API instead of the mocked client, causing flaky/order-dependent
+    failures (or worse, quietly making a real network call using
+    whatever ANTHROPIC_API_KEY happens to be in .env). Force a clean slate
+    before every test; tests that need "anthropic" already set it
+    themselves via monkeypatch, which takes precedence within that test.
+    """
+    monkeypatch.delenv("LLM_PROVIDER", raising=False)
     yield

@@ -1,4 +1,4 @@
-import { getAgentKey, setAgentKey } from '../utils/session'
+import { getAgentKey, setAgentKey, getSessionId } from '../utils/session'
 
 // Thin fetch wrapper for the backend. In dev, Vite proxies /api -> localhost:8010
 // (see vite.config.ts). In prod, set VITE_API_BASE_URL to the deployed Render URL.
@@ -16,6 +16,17 @@ const API_KEY = import.meta.env.VITE_API_KEY as string | undefined
 function authHeaders(): Record<string, string> {
   const key = getAgentKey() || API_KEY
   return key ? { 'X-API-Key': key } : {}
+}
+
+// Sent on every document-related request (upload/list/delete/query/citation
+// pages, and every multi-agent route that reads documents) so this browser's
+// uploads stay invisible to every other visitor — see utils/session.ts and
+// backend/services/session_scope.py. Deliberately NOT sent to /agent/run
+// (no documents involved), /audit/run (grades an already-fetched answer,
+// not a fresh document read), or /observability|/evaluation (aggregate
+// system metrics, not per-visitor data).
+function sessionHeaders(): Record<string, string> {
+  return { 'X-Session-ID': getSessionId() }
 }
 
 export interface UploadResult {
@@ -58,6 +69,7 @@ export interface SentenceVerdict {
 
 type StreamEvent =
   | { type: 'token'; content: string }
+  | { type: 'status'; message: string; query: string }
   | { type: 'done'; citations: Citation[]; eval: EvalScores | null }
   | { type: 'error'; message: string }
 
@@ -98,21 +110,21 @@ export async function uploadPdf(file: File): Promise<UploadResult> {
   formData.append('file', file)
   const res = await fetch(`${BASE_URL}/upload`, {
     method: 'POST',
-    headers: authHeaders(),
+    headers: { ...authHeaders(), ...sessionHeaders() },
     body: formData,
   })
   return handle<UploadResult>(res)
 }
 
 export async function listDocuments(): Promise<DocumentInfo[]> {
-  const res = await fetch(`${BASE_URL}/documents`, { headers: authHeaders() })
+  const res = await fetch(`${BASE_URL}/documents`, { headers: { ...authHeaders(), ...sessionHeaders() } })
   return handle<DocumentInfo[]>(res)
 }
 
 export async function deleteDocument(filename: string): Promise<void> {
   const res = await fetch(`${BASE_URL}/documents/${encodeURIComponent(filename)}`, {
     method: 'DELETE',
-    headers: authHeaders(),
+    headers: { ...authHeaders(), ...sessionHeaders() },
   })
   await handle(res)
 }
@@ -125,10 +137,11 @@ export async function askQuestionStream(
   documentFilter: string | undefined,
   history: HistoryTurn[],
   onToken: (content: string) => void,
+  onStatus?: (message: string) => void,
 ): Promise<{ citations: Citation[]; evalScores: EvalScores | null }> {
   const res = await fetch(`${BASE_URL}/query`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...sessionHeaders() },
     body: JSON.stringify({ question, document_filter: documentFilter, history }),
   })
 
@@ -157,6 +170,7 @@ export async function askQuestionStream(
       const parsed = JSON.parse(line.slice(5).trim()) as StreamEvent
 
       if (parsed.type === 'token') onToken(parsed.content)
+      else if (parsed.type === 'status') onStatus?.(parsed.message)
       else if (parsed.type === 'done') {
         citations = parsed.citations
         evalScores = parsed.eval
@@ -318,7 +332,7 @@ export async function runSupervisor(
 ): Promise<SupervisorResult> {
   const res = await fetch(`${BASE_URL}/supervisor/run`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...sessionHeaders() },
     body: JSON.stringify({ question, document_filter: documentFilter }),
   })
 
@@ -379,7 +393,7 @@ export async function runSupervisor(
 export async function getPageImageUrl(filename: string, page: number, snippet: string): Promise<string> {
   const params = new URLSearchParams({ page: String(page), snippet })
   const res = await fetch(`${BASE_URL}/documents/${encodeURIComponent(filename)}/page?${params}`, {
-    headers: authHeaders(),
+    headers: { ...authHeaders(), ...sessionHeaders() },
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }))

@@ -2,9 +2,15 @@ from unittest.mock import patch
 
 from db.chroma_client import get_collection
 from services import retrieval
+from services.session_scope import DEFAULT_SESSION_ID
 
 
 def _seed_collection():
+    # session_id is stamped here because real ingestion (services/ingestion.py)
+    # always stamps it on every chunk; without it these rows would silently
+    # fail retrieval.py's session-scoped where_clause() filter (a metadata
+    # key that's simply absent never matches an equality filter), which
+    # isn't what these tests are meant to exercise.
     col = get_collection()
     col.add(
         ids=["a", "b", "c"],
@@ -15,9 +21,9 @@ def _seed_collection():
             "Corporate tax deduction guidelines require documentation.",
         ],
         metadatas=[
-            {"filename": "tax.pdf", "page_number": 1, "chunk_index": 0},
-            {"filename": "fruit.pdf", "page_number": 1, "chunk_index": 0},
-            {"filename": "tax.pdf", "page_number": 2, "chunk_index": 1},
+            {"filename": "tax.pdf", "page_number": 1, "chunk_index": 0, "session_id": DEFAULT_SESSION_ID},
+            {"filename": "fruit.pdf", "page_number": 1, "chunk_index": 0, "session_id": DEFAULT_SESSION_ID},
+            {"filename": "tax.pdf", "page_number": 2, "chunk_index": 1, "session_id": DEFAULT_SESSION_ID},
         ],
     )
     return col

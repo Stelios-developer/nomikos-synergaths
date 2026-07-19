@@ -1,12 +1,13 @@
 import base64
 import json
 
-from fastapi import APIRouter, Header, Request
+from fastapi import APIRouter, Depends, Header, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from services.supervisor import run_supervisor_stream
 from services.security import limiter, RATE_LIMIT_SUPERVISOR, agent_enabled_for_request
+from services.session_scope import get_session_id
 
 router = APIRouter()
 
@@ -20,8 +21,8 @@ def _sse(event_type: str, payload: dict) -> str:
     return f"data: {json.dumps({'type': event_type, **payload})}\n\n"
 
 
-def _stream(question: str, document_filter: str | None, agent_enabled: bool):
-    for kind, payload in run_supervisor_stream(question, document_filter, None, agent_enabled):
+def _stream(question: str, document_filter: str | None, agent_enabled: bool, session_id: str):
+    for kind, payload in run_supervisor_stream(question, document_filter, None, agent_enabled, session_id):
         if kind == "rag_token":
             yield _sse("rag_token", {"content": payload})
         elif kind == "action_result":
@@ -47,6 +48,7 @@ async def run_supervisor(
     request: Request,
     req: SupervisorRequest,
     x_api_key: str | None = Header(default=None),
+    session_id: str = Depends(get_session_id),
 ):
     """
     SSE stream for the Supervisor agent (services/supervisor.py): decides,
@@ -72,7 +74,7 @@ async def run_supervisor(
     """
     agent_enabled = agent_enabled_for_request(x_api_key)
     return StreamingResponse(
-        _stream(req.question, req.document_filter, agent_enabled),
+        _stream(req.question, req.document_filter, agent_enabled, session_id),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

@@ -30,7 +30,7 @@ def test_chunk_pages_never_spans_pages(sample_pdf_factory):
     assert [c["chunk_index"] for c in chunks] == list(range(len(chunks)))
 
 
-def test_ingest_pdf_digital_end_to_end(sample_pdf_factory, fake_openai_embeddings):
+def test_ingest_pdf_digital_end_to_end(sample_pdf_factory, fake_embeddings):
     result = ingestion.ingest_pdf(sample_pdf_factory(num_pages=2), "test.pdf")
     assert result["filename"] == "test.pdf"
     assert result["method"] == "pymupdf"
@@ -42,7 +42,7 @@ def test_ingest_pdf_digital_end_to_end(sample_pdf_factory, fake_openai_embedding
     assert all(m["method"] == "pymupdf" for m in stored["metadatas"])
 
 
-def test_ingest_pdf_scanned_routes_to_ocr(scanned_pdf_factory, fake_openai_embeddings):
+def test_ingest_pdf_scanned_routes_to_ocr(scanned_pdf_factory, fake_embeddings):
     fake_ocr_pages = [{"page_number": 1, "text": "OCR'd content about tax law.", "char_count": 28}]
     with patch("services.ocr.ocr_pages", return_value=fake_ocr_pages):
         result = ingestion.ingest_pdf(scanned_pdf_factory(num_pages=1), "scanned.pdf")

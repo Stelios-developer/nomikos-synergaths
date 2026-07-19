@@ -13,23 +13,14 @@ from typing import Literal
 
 import fitz  # PyMuPDF
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from openai import OpenAI
 
 from db.chroma_client import get_collection
+from services.embeddings import embed_texts
+from services.session_scope import DEFAULT_SESSION_ID
 
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", 500))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", 50))
-EMBEDDING_MODEL = "text-embedding-3-small"
 SCANNED_PDF_CHAR_THRESHOLD = 50  # chars/page below this -> treat as scanned
-
-_openai_client = None
-
-
-def _get_openai_client() -> OpenAI:
-    global _openai_client
-    if _openai_client is None:
-        _openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-    return _openai_client
 
 
 def extract_pages(pdf_path: str) -> list[dict]:
@@ -85,18 +76,19 @@ def chunk_pages(pages: list[dict]) -> list[dict]:
 
 
 def embed_chunks(chunks: list[dict]) -> list[list[float]]:
-    """Batch-embeds chunk texts with OpenAI text-embedding-3-small."""
+    """Batch-embeds chunk texts with the local sentence-transformers model."""
     if not chunks:
         return []
-    client = _get_openai_client()
-    texts = [c["text"] for c in chunks]
-    resp = client.embeddings.create(model=EMBEDDING_MODEL, input=texts)
-    return [item.embedding for item in resp.data]
+    return embed_texts([c["text"] for c in chunks])
 
 
-def ingest_pdf(pdf_path: str, filename: str) -> dict:
+def ingest_pdf(pdf_path: str, filename: str, session_id: str = DEFAULT_SESSION_ID) -> dict:
     """
     Full pipeline for one PDF: extract -> chunk -> embed -> store.
+    `session_id` stamps every chunk so it's only ever visible to the
+    visitor who uploaded it (see services/session_scope.py) — defaults to
+    the shared bucket used before per-visitor isolation existed, so
+    callers that don't pass one (tests, direct API usage) are unaffected.
     Returns {"filename", "chunk_count", "method"}.
     """
     pages = extract_pages(pdf_path)
@@ -124,6 +116,7 @@ def ingest_pdf(pdf_path: str, filename: str) -> dict:
                 "chunk_index": c["chunk_index"],
                 "method": method,
                 "upload_date": upload_date,
+                "session_id": session_id,
             } for c in chunks],
         )
 

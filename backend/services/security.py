@@ -40,6 +40,21 @@ RATE_LIMIT_AGENT = os.getenv("RATE_LIMIT_AGENT", "10/minute")
 # The Supervisor can chain retrieval AND code execution in one request —
 # the single most expensive route in the app — so it defaults tighter still.
 RATE_LIMIT_SUPERVISOR = os.getenv("RATE_LIMIT_SUPERVISOR", "5/minute")
+# Advisory Panel / Debate fire several concurrent LLM calls plus a
+# synthesis call per request, so they default as tight as the Supervisor.
+RATE_LIMIT_PANEL = os.getenv("RATE_LIMIT_PANEL", "5/minute")
+RATE_LIMIT_DEBATE = os.getenv("RATE_LIMIT_DEBATE", "5/minute")
+# Research's cost scales with how many sub-questions the model decomposes
+# into (up to MAX_SUBQUESTIONS), so it gets a bit more headroom than Panel/Debate.
+RATE_LIMIT_RESEARCH = os.getenv("RATE_LIMIT_RESEARCH", "8/minute")
+# The Hallucination Auditor is a single LLM call — lighter than the other
+# multi-agent routes, so it gets the most headroom of the group.
+RATE_LIMIT_AUDIT = os.getenv("RATE_LIMIT_AUDIT", "15/minute")
+
+# Hard cap on a single uploaded PDF, in MB — rejected with a 400 before
+# ingestion ever starts (routers/upload.py). Guards against a public
+# deployment's disk/memory being exhausted by one huge upload.
+MAX_UPLOAD_SIZE_MB = int(os.getenv("MAX_UPLOAD_SIZE_MB", "20"))
 
 limiter = Limiter(key_func=get_remote_address)
 

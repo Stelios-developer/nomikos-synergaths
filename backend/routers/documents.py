@@ -1,21 +1,24 @@
-from fastapi import APIRouter, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
 from db.chroma_client import get_collection
 from services.pdf_storage import delete_pdf, pdf_path
 from services.page_render import render_page_png
+from services.session_scope import get_session_id, where_clause
 
 router = APIRouter()
 
 
 @router.get("/documents")
-async def list_documents():
+async def list_documents(session_id: str = Depends(get_session_id)):
     """
     Derives the document list from chunk metadata already in ChromaDB
     (no separate documents table) — groups by filename, reporting
     chunk_count, the extraction method, and first-seen upload date.
+    Scoped to the requesting session_id (services/session_scope.py) so
+    one visitor never sees another visitor's uploads.
     """
     collection = get_collection()
-    all_rows = collection.get(include=["metadatas"])
+    all_rows = collection.get(where=where_clause(session_id), include=["metadatas"])
     metadatas = all_rows["metadatas"]
 
     by_filename: dict[str, dict] = {}
@@ -34,23 +37,48 @@ async def list_documents():
 
 
 @router.delete("/documents/{filename}")
-async def delete_document(filename: str):
+async def delete_document(filename: str, session_id: str = Depends(get_session_id)):
+    """
+    Only deletes chunks that belong to BOTH this filename AND the
+    requesting session — a visitor can never delete another visitor's
+    document. Returns 404 (same as "never existed") rather than 403 for
+    a filename that exists under a different session, so this endpoint
+    doesn't leak whether a given filename exists at all elsewhere.
+    """
     collection = get_collection()
-    collection.delete(where={"filename": filename})
+    owned = collection.get(where=where_clause(session_id, filename), include=[])
+    if not owned["ids"]:
+        raise HTTPException(status_code=404, detail="Document not found in your session.")
+
+    collection.delete(where=where_clause(session_id, filename))
     delete_pdf(filename)
     return {"filename": filename, "deleted": True}
 
 
 @router.get("/documents/{filename}/page")
-async def get_page_image(filename: str, page: int = Query(..., ge=1), snippet: str = Query("")):
+async def get_page_image(
+    filename: str,
+    page: int = Query(..., ge=1),
+    snippet: str = Query(""),
+    session_id: str = Depends(get_session_id),
+):
     """
     Renders one page of the original PDF as a PNG, with `snippet` (the
     cited chunk's text) highlighted if it can be located on the page —
     lets the UI show a citation's exact source location instead of just
     the extracted text. Falls back to an unhighlighted page image if the
     snippet can't be matched (e.g. odd whitespace/hyphenation), and to a
-    404 if the PDF itself was never stored or has since been deleted.
+    404 if the PDF itself was never stored, has since been deleted, or
+    doesn't belong to the requesting session.
     """
+    collection = get_collection()
+    owned = collection.get(where=where_clause(session_id, filename), include=[])
+    if not owned["ids"]:
+        raise HTTPException(
+            status_code=404,
+            detail="Original PDF not found in storage (uploaded before this feature was added, deleted, or not in your session).",
+        )
+
     path = pdf_path(filename)
     if path is None:
         raise HTTPException(

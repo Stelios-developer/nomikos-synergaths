@@ -8,7 +8,10 @@ services:
     plan: free          # bump to "starter" (or higher) for a real deploy —
                          # see README for why the free plan is not enough here
     buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    # --proxy-headers + --forwarded-allow-ips so slowapi's per-IP rate limiter
+    # reads the real visitor IP from X-Forwarded-For instead of Render's edge
+    # proxy IP — without this every visitor would silently share one bucket.
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'
     envVars:
       - key: OPENAI_API_KEY
         sync: false
@@ -36,6 +39,8 @@ services:
       # execution private to yourself.
       - key: AGENT_API_KEY
         sync: false
+      - key: MAX_UPLOAD_SIZE_MB
+        value: "20"
       - key: RATE_LIMIT_QUERY
         value: "20/minute"
       - key: RATE_LIMIT_UPLOAD
@@ -44,6 +49,16 @@ services:
         value: "10/minute"
       - key: RATE_LIMIT_SUPERVISOR
         value: "5/minute"
+      - key: RATE_LIMIT_PANEL
+        value: "5/minute"
+      - key: RATE_LIMIT_DEBATE
+        value: "5/minute"
+      - key: RATE_LIMIT_RESEARCH
+        value: "8/minute"
+      - key: RATE_LIMIT_AUDIT
+        value: "15/minute"
+      - key: LOG_LEVEL
+        value: "INFO"
     disk:
       name: rag-data
       mountPath: /var/data

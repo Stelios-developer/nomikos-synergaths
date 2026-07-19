@@ -160,3 +160,78 @@ def test_generate_answer_uses_anthropic_when_configured(monkeypatch):
     call_kwargs = fake_client.messages.create.call_args.kwargs
     assert call_kwargs["model"] == llm.ANTHROPIC_MODEL
     assert call_kwargs["system"] == llm.SYSTEM_PROMPT
+
+
+def test_call_with_tools_openai_returns_tool_call(monkeypatch):
+    from unittest.mock import MagicMock
+    fake_tool_call = MagicMock()
+    fake_tool_call.function.name = "run_code"
+    fake_tool_call.function.arguments = '{"code": "print(1)"}'
+
+    fake_client = MagicMock()
+    fake_client.chat.completions.create.return_value.choices = [
+        MagicMock(message=MagicMock(content=None, tool_calls=[fake_tool_call]))
+    ]
+    monkeypatch.setattr(llm, "_openai", lambda: fake_client)
+    monkeypatch.delenv("LLM_PROVIDER", raising=False)
+
+    tools = [{"name": "run_code", "description": "run it", "parameters": {"type": "object", "properties": {}}}]
+    result = llm.call_with_tools("do something", tools)
+
+    assert result["tool_call"] == {"name": "run_code", "input": {"code": "print(1)"}}
+
+    call_kwargs = fake_client.chat.completions.create.call_args.kwargs
+    assert call_kwargs["tools"][0]["type"] == "function"
+    assert call_kwargs["tools"][0]["function"]["name"] == "run_code"
+
+
+def test_call_with_tools_openai_returns_none_when_no_tool_invoked(monkeypatch):
+    from unittest.mock import MagicMock
+    fake_client = MagicMock()
+    fake_client.chat.completions.create.return_value.choices = [
+        MagicMock(message=MagicMock(content="just some text", tool_calls=None))
+    ]
+    monkeypatch.setattr(llm, "_openai", lambda: fake_client)
+    monkeypatch.delenv("LLM_PROVIDER", raising=False)
+
+    tools = [{"name": "finish", "description": "stop", "parameters": {"type": "object", "properties": {}}}]
+    result = llm.call_with_tools("wrap it up", tools)
+
+    assert result["tool_call"] is None
+    assert result["text"] == "just some text"
+
+
+def test_call_with_tools_anthropic_returns_tool_call(monkeypatch):
+    from unittest.mock import MagicMock
+    tool_use_block = MagicMock(type="tool_use", input={"code": "print(2)"})
+    tool_use_block.name = "run_code"  # MagicMock(name=...) sets the mock's repr, not an attribute — must assign after
+
+    fake_client = MagicMock()
+    fake_client.messages.create.return_value.content = [tool_use_block]
+    monkeypatch.setattr(llm, "_anthropic", lambda: fake_client)
+    monkeypatch.setenv("LLM_PROVIDER", "anthropic")
+
+    tools = [{"name": "run_code", "description": "run it", "parameters": {"type": "object", "properties": {}}}]
+    result = llm.call_with_tools("do something", tools)
+
+    assert result["tool_call"] == {"name": "run_code", "input": {"code": "print(2)"}}
+
+    call_kwargs = fake_client.messages.create.call_args.kwargs
+    assert call_kwargs["tools"][0]["name"] == "run_code"
+    assert call_kwargs["tools"][0]["input_schema"] == tools[0]["parameters"]
+
+
+def test_call_with_tools_anthropic_returns_none_when_only_text(monkeypatch):
+    from unittest.mock import MagicMock
+    text_block = MagicMock(type="text", text="here is my answer")
+
+    fake_client = MagicMock()
+    fake_client.messages.create.return_value.content = [text_block]
+    monkeypatch.setattr(llm, "_anthropic", lambda: fake_client)
+    monkeypatch.setenv("LLM_PROVIDER", "anthropic")
+
+    tools = [{"name": "finish", "description": "stop", "parameters": {"type": "object", "properties": {}}}]
+    result = llm.call_with_tools("wrap it up", tools)
+
+    assert result["tool_call"] is None
+    assert result["text"] == "here is my answer"

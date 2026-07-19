@@ -39,6 +39,7 @@ from services.agent import agentic_retrieve_stream
 from services.code_agent import run_agent_stream as run_action_agent_stream
 from services.evaluator import evaluate_and_store
 from services.llm import call_with_tools, stream_answer
+from services.session_scope import DEFAULT_SESSION_ID
 
 MAX_SUPERVISOR_STEPS = 4
 
@@ -123,7 +124,12 @@ def _build_supervisor_prompt(question: str, transcript: list[str], agent_enabled
     return f"{instructions}\n\nΑίτημα χρήστη: {question}\n\nΜέχρι στιγμής:\n{history_text}"
 
 
-def _run_document_search_stream(query: str, document_filter: str | None, history: list[dict] | None):
+def _run_document_search_stream(
+    query: str,
+    document_filter: str | None,
+    history: list[dict] | None,
+    session_id: str = DEFAULT_SESSION_ID,
+):
     """
     Runs the same agentic retrieval + generation pipeline as the /query
     endpoint (routers/query.py), reused here as the Supervisor's
@@ -134,7 +140,7 @@ def _run_document_search_stream(query: str, document_filter: str | None, history
     Evaluation dashboard.
     """
     chunks: list[dict] = []
-    for kind, payload in agentic_retrieve_stream(query, document_filter, history):
+    for kind, payload in agentic_retrieve_stream(query, document_filter, history, session_id):
         if kind == "result":
             _final_query, chunks, _iterations = payload
 
@@ -161,6 +167,7 @@ def run_supervisor_stream(
     document_filter: str | None = None,
     history: list[dict] | None = None,
     agent_enabled: bool = True,
+    session_id: str = DEFAULT_SESSION_ID,
 ):
     """
     Generator over the Supervisor's full trace. Yields:
@@ -191,7 +198,7 @@ def run_supervisor_stream(
             yield ("route", {"tool": "search_documents", "input": query})
 
             answer, citations = "", []
-            for kind, payload in _run_document_search_stream(query, document_filter, history):
+            for kind, payload in _run_document_search_stream(query, document_filter, history, session_id):
                 if kind == "token":
                     yield ("rag_token", payload)
                 else:  # "done"
