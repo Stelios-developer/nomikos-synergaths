@@ -9,6 +9,7 @@ import Supervisor from './components/Supervisor'
 import AdvisoryPanel from './components/AdvisoryPanel'
 import DebateAgents from './components/DebateAgents'
 import ResearchAgent from './components/ResearchAgent'
+import PdfPageModal from './components/PdfPageModal'
 import { fetchConfig, type Citation } from './api/client'
 
 type RightTab = 'sources' | 'evaluation'
@@ -28,6 +29,7 @@ function App() {
   const [selectedFilename, setSelectedFilename] = useState<string | null>(null)
   const [citations, setCitations] = useState<Citation[]>([])
   const [hoveredCitation, setHoveredCitation] = useState<number | null>(null)
+  const [viewingCitation, setViewingCitation] = useState<Citation | null>(null)
   const [rightTab, setRightTab] = useState<RightTab>('sources')
   const [agentEnabled, setAgentEnabled] = useState(false)
   const docListRef = useRef<DocumentListHandle>(null)
@@ -106,6 +108,7 @@ function App() {
               documentFilter={selectedFilename}
               onCitations={setCitations}
               onHoverCitation={setHoveredCitation}
+              onViewCitation={setViewingCitation}
             />
           </main>
 
@@ -127,11 +130,13 @@ function App() {
             </div>
 
             {rightTab === 'sources' ? (
-              <CitationsPanel citations={citations} hoveredIndex={hoveredCitation} />
+              <CitationsPanel citations={citations} hoveredIndex={hoveredCitation} onViewSource={setViewingCitation} />
             ) : (
               <EvalDashboard />
             )}
           </aside>
+
+          <PdfPageModal citation={viewingCitation} onClose={() => setViewingCitation(null)} />
         </div>
       )}
     </div>

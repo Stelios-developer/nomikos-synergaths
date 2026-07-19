@@ -628,3 +628,19 @@ export async function runResearchAgent(
 
   return result
 }
+
+// --- Hallucination Auditor (backend/services/auditor.py) ---
+// On-demand, non-streaming: grades every sentence of an already-generated
+// answer as supported/unsupported by its citations, in one LLM call.
+// Not sent with sessionHeaders() — this grades an answer + citations the
+// client already has, it doesn't read documents fresh (see the comment on
+// sessionHeaders above).
+export async function auditAnswer(answer: string, citations: Citation[]): Promise<SentenceVerdict[]> {
+  const res = await fetch(`${BASE_URL}/audit/run`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ answer, citations }),
+  })
+  const body = await handle<{ sentences: SentenceVerdict[] }>(res)
+  return body.sentences
+}
