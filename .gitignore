@@ -6,7 +6,12 @@ backend/.pytest_cache/
 backend/.coverage
 backend/chroma_db/
 backend/evaluation.db
+backend/evaluation.db-journal
+backend/observability.db
+backend/observability.db-journal
 backend/.env
+backend/storage/
+backend/_*_tmp.py
 
 # Node
 frontend/node_modules/
