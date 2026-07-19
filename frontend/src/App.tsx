@@ -10,9 +10,14 @@ import AdvisoryPanel from './components/AdvisoryPanel'
 import DebateAgents from './components/DebateAgents'
 import ResearchAgent from './components/ResearchAgent'
 import PdfPageModal from './components/PdfPageModal'
+import ObservabilityDashboard from './components/ObservabilityDashboard'
 import { fetchConfig, type Citation } from './api/client'
 
-type RightTab = 'sources' | 'evaluation'
+// Observability ("Ops") is deliberately a 3rd tab in the Documents view's
+// right sidebar, NOT a 7th top-level nav item — it's cross-cutting
+// (aggregates every route, not just document Q&A), so it lives alongside
+// Sources/Evaluation rather than getting its own AppMode.
+type RightTab = 'sources' | 'evaluation' | 'observability'
 type AppMode = 'documents' | 'agent' | 'supervisor' | 'panel' | 'debate' | 'research'
 
 const NAV_ITEMS: { mode: AppMode; icon: string; label: string }[] = [
@@ -127,12 +132,20 @@ function App() {
               >
                 Evaluation
               </button>
+              <button
+                onClick={() => setRightTab('observability')}
+                className={`flex-1 rounded px-2 py-1 ${rightTab === 'observability' ? 'bg-gold/15 text-gold' : 'text-gray-400'}`}
+              >
+                📊 Ops
+              </button>
             </div>
 
             {rightTab === 'sources' ? (
               <CitationsPanel citations={citations} hoveredIndex={hoveredCitation} onViewSource={setViewingCitation} />
-            ) : (
+            ) : rightTab === 'evaluation' ? (
               <EvalDashboard />
+            ) : (
+              <ObservabilityDashboard />
             )}
           </aside>
 

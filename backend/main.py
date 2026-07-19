@@ -1,15 +1,28 @@
 import os
+import time
 
-from fastapi import FastAPI, Depends, Header
+from fastapi import FastAPI, Depends, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from routers import upload, documents, query, evaluation, agent_action, supervisor, advisory_panel, debate, research, audit
+from routers import upload, documents, query, evaluation, agent_action, supervisor, advisory_panel, debate, research, audit, observability
 from services.security import limiter, require_api_key, agent_enabled_for_request
+from services.observability import (
+    configure_logging,
+    configure_tracing,
+    new_request_id,
+    request_id_var,
+    usage_accumulator_var,
+    get_request_usage_summary,
+    record_request_metrics,
+    traced_span,
+)
 
 load_dotenv()
+configure_logging()
+configure_tracing()
 
 app = FastAPI(title="Document RAG Assistant API")
 
@@ -34,6 +47,46 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def observability_middleware(request: Request, call_next):
+    """
+    Gives every request a correlation ID (X-Request-ID, generated unless
+    the caller already supplied one), a root OTel span, and a per-request
+    cost/token accumulator (services/observability.py's contextvars) that
+    concurrent LLM calls fired via services.observability.submit_with_context
+    still attribute back to correctly. Persists one row of aggregate
+    metrics per request to SQLite in a `finally` block — wrapped in its
+    own try/except so a metrics-recording bug can never turn into a 500
+    for an otherwise-successful response.
+    """
+    request_id = request.headers.get("X-Request-ID") or new_request_id()
+    request_id_token = request_id_var.set(request_id)
+    usage_token = usage_accumulator_var.set([])
+    start = time.perf_counter()
+    response = None
+    try:
+        with traced_span(f"{request.method} {request.url.path}", http_method=request.method):
+            response = await call_next(request)
+        return response
+    finally:
+        duration_ms = (time.perf_counter() - start) * 1000
+        try:
+            record_request_metrics(
+                request_id=request_id,
+                method=request.method,
+                path=request.url.path,
+                status_code=response.status_code if response is not None else 500,
+                duration_ms=duration_ms,
+                summary=get_request_usage_summary(),
+            )
+            if response is not None:
+                response.headers["X-Request-ID"] = request_id
+        except Exception:
+            pass
+        request_id_var.reset(request_id_token)
+        usage_accumulator_var.reset(usage_token)
 
 
 @app.get("/health")
@@ -72,3 +125,4 @@ app.include_router(advisory_panel.router, dependencies=_auth)
 app.include_router(debate.router, dependencies=_auth)
 app.include_router(research.router, dependencies=_auth)
 app.include_router(audit.router, dependencies=_auth)
+app.include_router(observability.router, dependencies=_auth)

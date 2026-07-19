@@ -644,3 +644,49 @@ export async function auditAnswer(answer: string, citations: Citation[]): Promis
   const body = await handle<{ sentences: SentenceVerdict[] }>(res)
   return body.sentences
 }
+
+// --- Observability dashboard (backend/services/observability.py) ---
+// Aggregate cost/latency/token metrics across every request the backend
+// process has handled, persisted to SQLite by main.py's
+// observability_middleware. Cross-cutting (not scoped to one visitor's
+// documents), so — like /evaluation — this is deliberately NOT sent with
+// sessionHeaders().
+export interface ObservabilityRouteRow {
+  path: string
+  requests: number
+  cost_usd: number
+  avg_duration_ms: number
+}
+
+export interface ObservabilitySummary {
+  total_requests: number
+  total_cost_usd: number
+  total_input_tokens: number
+  total_output_tokens: number
+  avg_duration_ms: number
+  by_route: ObservabilityRouteRow[]
+}
+
+export interface ObservabilityRequestRow {
+  request_id: string
+  method: string
+  path: string
+  status_code: number
+  duration_ms: number
+  input_tokens: number
+  output_tokens: number
+  cost_usd: number
+  llm_calls: number
+  created_at: string
+}
+
+export async function fetchObservabilitySummary(): Promise<ObservabilitySummary> {
+  const res = await fetch(`${BASE_URL}/observability/summary`, { headers: authHeaders() })
+  return handle<ObservabilitySummary>(res)
+}
+
+export async function fetchRecentRequests(limit = 50): Promise<ObservabilityRequestRow[]> {
+  const res = await fetch(`${BASE_URL}/observability/requests?limit=${limit}`, { headers: authHeaders() })
+  const body = await handle<{ requests: ObservabilityRequestRow[] }>(res)
+  return body.requests
+}
