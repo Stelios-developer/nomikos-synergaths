@@ -1,4 +1,6 @@
-// Thin fetch wrapper for the backend. In dev, Vite proxies /api -> localhost:8000
+import { getAgentKey, setAgentKey } from '../utils/session'
+
+// Thin fetch wrapper for the backend. In dev, Vite proxies /api -> localhost:8010
 // (see vite.config.ts). In prod, set VITE_API_BASE_URL to the deployed Render URL.
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api'
 
@@ -6,8 +8,14 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api'
 // Unset by default — local dev works with no key at all.
 const API_KEY = import.meta.env.VITE_API_KEY as string | undefined
 
+// The general API_KEY gate and the Action Agent's dedicated AGENT_API_KEY
+// gate share the same X-API-Key header on the backend — they're just
+// checked against two (possibly different) configured values. A runtime
+// key a visitor enters via components/AgentKeyUnlock.tsx takes precedence
+// over the build-time VITE_API_KEY baked in at deploy time.
 function authHeaders(): Record<string, string> {
-  return API_KEY ? { 'X-API-Key': API_KEY } : {}
+  const key = getAgentKey() || API_KEY
+  return key ? { 'X-API-Key': key } : {}
 }
 
 export interface UploadResult {
@@ -39,10 +47,43 @@ export interface HistoryTurn {
   content: string
 }
 
+// Used by utils/richText.tsx's renderAuditedRichText — defined here early
+// since that shared renderer references it regardless of whether the
+// Hallucination Auditor feature itself has landed yet.
+export interface SentenceVerdict {
+  text: string
+  supported: boolean
+  reason: string
+}
+
 type StreamEvent =
   | { type: 'token'; content: string }
   | { type: 'done'; citations: Citation[]; eval: EvalScores | null }
   | { type: 'error'; message: string }
+
+// --- Runtime config (backend/main.py: GET /config) ---
+// Public, unauthenticated probe so the UI can render the Action Agent's
+// code-execution affordance as locked or active up front, rather than the
+// visitor discovering it's locked only after a failed run.
+export interface AppConfig {
+  agentEnabled: boolean
+}
+
+export async function fetchConfig(): Promise<AppConfig> {
+  const res = await fetch(`${BASE_URL}/config`, { headers: authHeaders() })
+  const body = await handle<{ agent_enabled: boolean }>(res)
+  return { agentEnabled: body.agent_enabled }
+}
+
+// Verifies a candidate agent key against the backend BEFORE persisting it
+// (see components/AgentKeyUnlock.tsx) — a wrong guess never "looks"
+// unlocked only to fail on the first real run_code call.
+export async function tryUnlockAgent(key: string): Promise<boolean> {
+  const res = await fetch(`${BASE_URL}/config`, { headers: { 'X-API-Key': key } })
+  const body = await handle<{ agent_enabled: boolean }>(res)
+  if (body.agent_enabled) setAgentKey(key)
+  return body.agent_enabled
+}
 
 async function handle<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -131,4 +172,97 @@ export async function askQuestionStream(
 export async function fetchEvaluation() {
   const res = await fetch(`${BASE_URL}/evaluation`, { headers: authHeaders() })
   return handle(res)
+}
+
+// --- Action Agent (backend/services/code_agent.py) ---
+// Entirely independent of the document RAG pipeline above: no chunks, no
+// citations, no ChromaDB. A multi-agent, tool-calling, self-correcting
+// agent: a Planner breaks the goal into steps, a Coder decides (via
+// native tool-calling) whether to run code or finish, a Reviewer vets
+// every snippet before it reaches the sandbox, and the sandbox itself
+// (Docker if available, subprocess fallback otherwise) reports real
+// runtime errors back into the loop. Streamed over SSE the same way /query is.
+
+export interface AgentResult {
+  success: boolean
+  stdout: string
+  imageBase64: string | null
+  attempts: number
+  summary?: string | null
+  error?: string | null
+  sandboxBackend?: string | null
+}
+
+type AgentStreamEvent =
+  | { type: 'plan'; steps: string[] }
+  | { type: 'code'; attempt: number; code: string }
+  | { type: 'review'; attempt: number; approved: boolean; feedback: string }
+  | { type: 'error'; attempt: number; message: string }
+  | {
+      type: 'done'
+      success: boolean
+      stdout: string
+      image_base64: string | null
+      attempts: number
+      summary?: string | null
+      error?: string | null
+      sandbox_backend?: string | null
+    }
+
+export interface AgentCallbacks {
+  onPlan: (steps: string[]) => void
+  onCode: (attempt: number, code: string) => void
+  onReview: (attempt: number, approved: boolean, feedback: string) => void
+  onError: (attempt: number, message: string) => void
+}
+
+export async function runActionAgent(goal: string, callbacks: AgentCallbacks): Promise<AgentResult> {
+  const res = await fetch(`${BASE_URL}/agent/run`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ goal }),
+  })
+
+  if (!res.ok || !res.body) {
+    const body = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(body.detail ?? `Request failed: ${res.status}`)
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let result: AgentResult = { success: false, stdout: '', imageBase64: null, attempts: 0 }
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+
+    const events = buffer.split('\n\n')
+    buffer = events.pop() ?? ''
+
+    for (const raw of events) {
+      const line = raw.trim()
+      if (!line.startsWith('data:')) continue
+      const parsed = JSON.parse(line.slice(5).trim()) as AgentStreamEvent
+
+      if (parsed.type === 'plan') callbacks.onPlan(parsed.steps)
+      else if (parsed.type === 'code') callbacks.onCode(parsed.attempt, parsed.code)
+      else if (parsed.type === 'review') callbacks.onReview(parsed.attempt, parsed.approved, parsed.feedback)
+      else if (parsed.type === 'error') callbacks.onError(parsed.attempt, parsed.message)
+      else if (parsed.type === 'done') {
+        result = {
+          success: parsed.success,
+          stdout: parsed.stdout,
+          imageBase64: parsed.image_base64,
+          attempts: parsed.attempts,
+          summary: parsed.summary,
+          error: parsed.error,
+          sandboxBackend: parsed.sandbox_backend,
+        }
+      }
+    }
+  }
+
+  return result
 }

@@ -30,9 +30,17 @@ services:
         value: /var/data/evaluation.db
       - key: API_KEY
         sync: false
+      # AGENT_API_KEY gates ONLY code execution (the Action Agent) —
+      # falls back to API_KEY if unset. Set this to a DIFFERENT value than
+      # API_KEY if you want the rest of the app public while keeping code
+      # execution private to yourself.
+      - key: AGENT_API_KEY
+        sync: false
       - key: RATE_LIMIT_QUERY
         value: "20/minute"
       - key: RATE_LIMIT_UPLOAD
+        value: "10/minute"
+      - key: RATE_LIMIT_AGENT
         value: "10/minute"
     disk:
       name: rag-data
