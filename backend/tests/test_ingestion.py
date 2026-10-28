@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 from services import ingestion
+from services.session_scope import DEFAULT_SESSION_ID
 
 
 def test_extract_pages_reads_real_text(sample_pdf_factory):
@@ -36,10 +37,20 @@ def test_ingest_pdf_digital_end_to_end(sample_pdf_factory, fake_embeddings):
     assert result["method"] == "pymupdf"
     assert result["chunk_count"] > 0
 
-    from db.chroma_client import get_collection
-    stored = get_collection().get(where={"filename": "test.pdf"})
+    from db.vector_store import get_collection
+    stored = get_collection().get(workspace_id=DEFAULT_SESSION_ID, filename="test.pdf")
     assert len(stored["documents"]) == result["chunk_count"]
     assert all(m["method"] == "pymupdf" for m in stored["metadatas"])
+
+
+def test_reupload_replaces_old_chunks_within_the_same_workspace(sample_pdf_factory, fake_embeddings):
+    first = ingestion.ingest_pdf(sample_pdf_factory(num_pages=1, sentence="Old content. "), "replace.pdf", session_id="a")
+    second = ingestion.ingest_pdf(sample_pdf_factory(num_pages=3, sentence="New content. "), "replace.pdf", session_id="a")
+
+    from db.vector_store import get_collection
+    stored = get_collection().get(workspace_id="a", filename="replace.pdf")
+    assert len(stored["documents"]) == second["chunk_count"]
+    assert len(stored["documents"]) != first["chunk_count"]
 
 
 def test_ingest_pdf_scanned_routes_to_ocr(scanned_pdf_factory, fake_embeddings):

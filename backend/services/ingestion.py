@@ -1,5 +1,5 @@
 """
-Ingestion pipeline: PDF -> page text -> chunks -> embeddings -> ChromaDB.
+Ingestion pipeline: PDF -> page text -> chunks -> embeddings -> PostgreSQL/pgvector.
 
 Step 3 of the implementation plan covers digital PDFs only (PyMuPDF).
 OCR for scanned PDFs is added later in services/ocr.py (step 11); the
@@ -14,7 +14,7 @@ from typing import Literal
 import fitz  # PyMuPDF
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from db.chroma_client import get_collection
+from db.vector_store import get_collection
 from services.embeddings import embed_texts
 from services.session_scope import DEFAULT_SESSION_ID
 
@@ -82,7 +82,20 @@ def embed_chunks(chunks: list[dict]) -> list[list[float]]:
     return embed_texts([c["text"] for c in chunks])
 
 
-def ingest_pdf(pdf_path: str, filename: str, session_id: str = DEFAULT_SESSION_ID) -> dict:
+def prepare_pdf(pdf_path: str):
+    """Extract and embed without changing any persisted document generation."""
+    pages = extract_pages(pdf_path)
+    method: Literal["pymupdf", "ocr"] = "ocr" if is_scanned(pages) else "pymupdf"
+    if method == "ocr":
+        from services.ocr import ocr_pages
+        pages = ocr_pages(pdf_path)
+    chunks = chunk_pages(pages)
+    if not chunks:
+        raise ValueError("The PDF did not contain extractable text after OCR.")
+    return chunks, embed_chunks(chunks), method
+
+
+def ingest_pdf(pdf_path: str, filename: str, session_id: str = DEFAULT_SESSION_ID, *, prepared=None) -> dict:
     """
     Full pipeline for one PDF: extract -> chunk -> embed -> store.
     `session_id` stamps every chunk so it's only ever visible to the
@@ -91,23 +104,19 @@ def ingest_pdf(pdf_path: str, filename: str, session_id: str = DEFAULT_SESSION_I
     callers that don't pass one (tests, direct API usage) are unaffected.
     Returns {"filename", "chunk_count", "method"}.
     """
-    pages = extract_pages(pdf_path)
-    method: Literal["pymupdf", "ocr"] = "ocr" if is_scanned(pages) else "pymupdf"
-
-    if method == "ocr":
-        from services.ocr import ocr_pages  # lazy import - keeps torch off the
-                                             # hot path for the (common) digital-PDF case
-        pages = ocr_pages(pdf_path)
-
-    chunks = chunk_pages(pages)
-    embeddings = embed_chunks(chunks)
+    chunks, embeddings, method = prepared if prepared is not None else prepare_pdf(pdf_path)
 
     upload_date = datetime.now(timezone.utc).isoformat()
 
     collection = get_collection()
-    if chunks:
+    # Add the new generation before removing the old one. If indexing fails,
+    # leave the prior document intact; if cleanup fails, remove the new IDs.
+    old_ids = collection.get(workspace_id=session_id, filename=filename, include=[])["ids"]
+    new_ids = [f"{filename}::{c['chunk_index']}::{uuid.uuid4().hex[:8]}" for c in chunks]
+    try:
         collection.add(
-            ids=[f"{filename}::{c['chunk_index']}::{uuid.uuid4().hex[:8]}" for c in chunks],
+            workspace_id=session_id,
+            ids=new_ids,
             embeddings=embeddings,
             documents=[c["text"] for c in chunks],
             metadatas=[{
@@ -119,5 +128,15 @@ def ingest_pdf(pdf_path: str, filename: str, session_id: str = DEFAULT_SESSION_I
                 "session_id": session_id,
             } for c in chunks],
         )
+        if old_ids:
+            collection.delete(workspace_id=session_id, ids=old_ids)
+    except Exception:
+        # The replacement spans batch insertion and old-generation deletion.
+        # Cleanup also covers a failure after the atomic insertion commits.
+        try:
+            collection.delete(workspace_id=session_id, ids=new_ids)
+        except Exception:
+            pass
+        raise
 
     return {"filename": filename, "chunk_count": len(chunks), "method": method}

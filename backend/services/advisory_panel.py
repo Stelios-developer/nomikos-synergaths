@@ -6,8 +6,7 @@ their agreement/disagreement into one final recommendation.
 This is architecturally distinct from both other multi-agent patterns in
 the app: the Supervisor (services/supervisor.py) is a sequential
 tool-calling router that decides which ONE subsystem to invoke next, and
-the Action Agent (services/code_agent.py) is a sequential Planner ->
-Coder -> Reviewer loop. The Advisory Panel instead runs three
+the Document Assistant is a single grounded-answer flow. The Advisory Panel instead runs three
 differently-instructed agents CONCURRENTLY over one shared retrieval,
 each producing an independent, self-contained recommendation, then a
 fourth agent (the Moderator) reconciles them.

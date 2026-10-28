@@ -1,9 +1,9 @@
 """
 Evaluation layer: faithfulness + context-relevance scoring via LLM
 judgment (services.llm.score — follows LLM_PROVIDER, same model that
-generated the answer, no separate evaluation model needed). Scores
-persist to SQLite for simplicity; GET /evaluation aggregates from the
-same table.
+generated the answer, no separate evaluation model needed). Only scores
+persist to SQLite; raw questions and answers are not retained.
+GET /evaluation aggregates from the same table.
 
 relevance_score optionally takes conversation history: a raw follow-up
 question ("and what's needed above that?") looks unrelated to its
@@ -84,7 +84,7 @@ def evaluate_and_store(
         conn.execute(
             "INSERT INTO evaluations (question, answer, faithfulness, relevance, created_at) "
             "VALUES (?, ?, ?, ?, ?)",
-            (question, answer, faithfulness, relevance, datetime.now(timezone.utc).isoformat()),
+            ("", "", faithfulness, relevance, datetime.now(timezone.utc).isoformat()),
         )
         conn.commit()
     finally:
@@ -101,7 +101,7 @@ def get_aggregate() -> dict:
         ).fetchone()
 
         rows = conn.execute(
-            "SELECT question, faithfulness, relevance, created_at FROM evaluations "
+            "SELECT faithfulness, relevance, created_at FROM evaluations "
             "ORDER BY id DESC LIMIT 10"
         ).fetchall()
     finally:
@@ -112,7 +112,7 @@ def get_aggregate() -> dict:
         "avg_relevance": round(avg_r, 3) if avg_r is not None else 0.0,
         "total_queries": total or 0,
         "history": [
-            {"question": q, "faithfulness": f, "relevance": r, "created_at": c}
-            for q, f, r, c in rows
+            {"question": "Query details not retained", "faithfulness": f, "relevance": r, "created_at": c}
+            for f, r, c in rows
         ],
     }

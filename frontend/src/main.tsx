@@ -2,9 +2,11 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
+import AuthGate from './components/auth/AuthGate.tsx'
+import AppErrorBoundary from './components/ui/AppErrorBoundary.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <AppErrorBoundary><AuthGate><App /></AuthGate></AppErrorBoundary>
   </StrictMode>,
 )

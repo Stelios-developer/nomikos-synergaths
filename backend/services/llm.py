@@ -22,6 +22,7 @@ from anthropic import Anthropic
 from opentelemetry import trace as _otel_trace
 from opentelemetry.trace import Status, StatusCode
 from services.observability import traced_span, record_llm_usage, _tracer, get_request_id
+from services.budget import remaining
 
 OPENAI_MODEL = "gpt-4o-mini"
 ANTHROPIC_MODEL = "claude-haiku-4-5-20251001"
@@ -51,14 +52,14 @@ _anthropic_client = None
 def _openai() -> OpenAI:
     global _openai_client
     if _openai_client is None:
-        _openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        _openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"), max_retries=0, timeout=120)
     return _openai_client
 
 
 def _anthropic() -> Anthropic:
     global _anthropic_client
     if _anthropic_client is None:
-        _anthropic_client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+        _anthropic_client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"), max_retries=0, timeout=120)
     return _anthropic_client
 
 
@@ -113,6 +114,7 @@ def complete(prompt: str, max_tokens: int = 100) -> str:
     with traced_span("llm.complete", provider=provider()):
         if provider() == "anthropic":
             resp = _anthropic().messages.create(
+                timeout=remaining(),
                 model=ANTHROPIC_MODEL,
                 max_tokens=max_tokens,
                 messages=[{"role": "user", "content": prompt}],
@@ -123,6 +125,7 @@ def complete(prompt: str, max_tokens: int = 100) -> str:
             return text
 
         resp = _openai().chat.completions.create(
+            timeout=remaining(),
             model=OPENAI_MODEL,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=max_tokens,
@@ -155,6 +158,7 @@ def generate_with_system(
     with traced_span("llm.generate_with_system", provider=provider()):
         if provider() == "anthropic":
             resp = _anthropic().messages.create(
+                timeout=remaining(),
                 model=ANTHROPIC_MODEL,
                 max_tokens=1024,
                 system=system_prompt,
@@ -165,6 +169,7 @@ def generate_with_system(
             return resp.content[0].text
 
         resp = _openai().chat.completions.create(
+            timeout=remaining(),
             model=OPENAI_MODEL,
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -214,12 +219,14 @@ def stream_answer(question: str, chunks: list[dict], history: list[dict] | None 
     try:
         if provider() == "anthropic":
             with _anthropic().messages.stream(
+                timeout=remaining(),
                 model=ANTHROPIC_MODEL,
                 max_tokens=1024,
                 system=SYSTEM_PROMPT,
                 messages=[*history_msgs, {"role": "user", "content": user_message}],
             ) as stream:
                 for text in stream.text_stream:
+                    remaining()
                     yield text
                 try:
                     final_message = stream.get_final_message()
@@ -230,6 +237,7 @@ def stream_answer(question: str, chunks: list[dict], history: list[dict] | None 
 
         else:
             stream = _openai().chat.completions.create(
+                timeout=remaining(),
                 model=OPENAI_MODEL,
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
@@ -240,18 +248,24 @@ def stream_answer(question: str, chunks: list[dict], history: list[dict] | None 
                 stream_options={"include_usage": True},
             )
             in_tok, out_tok = 0, 0
-            for chunk in stream:
-                if chunk.choices:
-                    delta = chunk.choices[0].delta.content
-                    if delta:
-                        yield delta
-                usage = getattr(chunk, "usage", None)
-                if usage:
-                    in_tok, out_tok = _openai_usage(chunk)
+            try:
+                for chunk in stream:
+                    remaining()
+                    if chunk.choices:
+                        delta = chunk.choices[0].delta.content
+                        if delta:
+                            yield delta
+                    usage = getattr(chunk, "usage", None)
+                    if usage:
+                        in_tok, out_tok = _openai_usage(chunk)
+            finally:
+                # Generator.close(), deadline expiry and provider failures must
+                # all release the local HTTP connection, including partial reads.
+                stream.close()
             record_llm_usage(OPENAI_MODEL, "stream_answer", in_tok, out_tok, (time.perf_counter() - start) * 1000)
     except Exception as exc:
-        span.record_exception(exc)
-        span.set_status(Status(StatusCode.ERROR, str(exc)))
+        span.record_exception(RuntimeError(type(exc).__name__))
+        span.set_status(Status(StatusCode.ERROR, type(exc).__name__))
         raise
     finally:
         span.end()
@@ -314,8 +328,7 @@ def _openai_tool_schema(tools: list[dict]) -> list[dict]:
 def call_with_tools(prompt: str, tools: list[dict], max_tokens: int = 1000) -> dict:
     """
     Single-turn, provider-aware tool-calling request — used by the Action
-    Agent's Coder step (services/code_agent.py), the one part of the app
-    that's a genuine tool-calling agent rather than a fixed pipeline: the
+    Supervisor when it selects an allowed document-analysis tool: the
     model itself decides, via the provider's native tool-use mechanism,
     whether to invoke a tool (and which one, with what arguments) or just
     respond with text.
@@ -326,7 +339,7 @@ def call_with_tools(prompt: str, tools: list[dict], max_tokens: int = 1000) -> d
     turns. That's a deliberate simplification: it keeps this function
     provider-agnostic and easy to reason about/test, at the cost of a
     slightly larger prompt on later iterations — acceptable given the
-    loop's small iteration cap (see code_agent.MAX_TOOL_CALLS).
+    loop's small iteration cap.
 
     Returns {"tool_call": {"name": str, "input": dict} | None, "text": str}.
     tool_call is None when the model responded with plain text instead of
@@ -337,6 +350,7 @@ def call_with_tools(prompt: str, tools: list[dict], max_tokens: int = 1000) -> d
     with traced_span("llm.call_with_tools", provider=provider()):
         if provider() == "anthropic":
             resp = _anthropic().messages.create(
+                timeout=remaining(),
                 model=ANTHROPIC_MODEL,
                 max_tokens=max_tokens,
                 tools=_anthropic_tool_schema(tools),
@@ -353,6 +367,7 @@ def call_with_tools(prompt: str, tools: list[dict], max_tokens: int = 1000) -> d
             return {"tool_call": None, "text": "\n".join(text_blocks)}
 
         resp = _openai().chat.completions.create(
+            timeout=remaining(),
             model=OPENAI_MODEL,
             messages=[{"role": "user", "content": prompt}],
             tools=_openai_tool_schema(tools),

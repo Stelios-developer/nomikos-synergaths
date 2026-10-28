@@ -42,13 +42,14 @@ def test_audit_answer_parses_per_sentence_json_verdicts():
     }
 
 
-def test_audit_answer_falls_back_to_all_supported_on_unparseable_response():
+def test_audit_answer_fails_closed_on_unparseable_response():
     answer = "The rate is 24%. It applies broadly."
     with patch.object(auditor, "complete", return_value="I can't verify this right now."):
         result = auditor.audit_answer(answer, CHUNKS)
 
     assert len(result) == 2
-    assert all(r["supported"] is True for r in result)
+    assert all(r["supported"] is False for r in result)
+    assert all(r["verification_unavailable"] is True for r in result)
     assert all("δεν ήταν δυνατή" in r["reason"].lower() for r in result)
 
 
@@ -59,7 +60,8 @@ def test_audit_answer_falls_back_when_verdict_count_mismatches_sentence_count():
         result = auditor.audit_answer(answer, CHUNKS)
 
     assert len(result) == 3
-    assert all(r["supported"] is True for r in result)
+    assert all(r["supported"] is False for r in result)
+    assert all(r["verification_unavailable"] is True for r in result)
 
 
 def test_audit_answer_falls_back_when_verdict_missing_supported_key():
@@ -69,4 +71,14 @@ def test_audit_answer_falls_back_when_verdict_missing_supported_key():
         result = auditor.audit_answer(answer, CHUNKS)
 
     assert len(result) == 1
-    assert result[0]["supported"] is True
+    assert result[0]["supported"] is False
+    assert result[0]["verification_unavailable"] is True
+
+
+def test_audit_answer_fails_closed_when_model_call_errors():
+    with patch.object(auditor, "complete", side_effect=TimeoutError("provider unavailable")):
+        result = auditor.audit_answer("The rate is 24%.", CHUNKS)
+
+    assert result[0]["supported"] is False
+    assert result[0]["verification_unavailable"] is True
+    assert "provider unavailable" not in result[0]["reason"]

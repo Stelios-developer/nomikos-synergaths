@@ -1,0 +1,13 @@
+**
+!Dockerfile
+!requirements-linux-py312.lock
+!db/
+!db/**
+!services/
+!services/**
+!routers/
+!routers/**
+!main.py
+!contracts.py
+**/__pycache__/
+**/*.pyc

@@ -8,11 +8,9 @@ The model downloads once on first use (~80MB, cached under
 ~/.cache/torch/sentence_transformers or HF_HOME) and then runs locally
 for every embed call — free and offline after that.
 
-IMPORTANT: embedding dimensionality is baked into whatever's already
-stored in ChromaDB. If you've previously ingested documents with a
-different embedding model/dimension, clear CHROMA_PERSIST_DIR (delete
-the chroma_db folder) before switching, or ChromaDB will error on the
-dimension mismatch.
+IMPORTANT: PostgreSQL validates the embedding model and dimensions against
+its stored configuration. Changing either requires an explicit verified
+re-embedding migration; never delete the old vector data as a quick fix.
 """
 import os
 
@@ -26,7 +24,7 @@ def _get_model():
     if _model is None:
         from sentence_transformers import SentenceTransformer  # lazy import -
         # keeps torch off the import path for anything that doesn't embed
-        # (mirrors the same lazy-import pattern used for EasyOCR).
+        # OCR itself runs in the separate PDF safety worker.
         _model = SentenceTransformer(EMBEDDING_MODEL_NAME)
     return _model
 

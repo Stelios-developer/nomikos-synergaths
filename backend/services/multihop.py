@@ -20,7 +20,7 @@ search instead of one blurred one.
 Design note on concurrency: sub-questions are decomposed once, then
 retrieved+graded independently — no sub-question depends on another's
 result — so they run through a shared ThreadPoolExecutor, the same
-pattern used by the Advisory Panel and Debate Agents for the same
+pattern used by the Advisory Panel for the same
 underlying reason: no ordering dependency, no reason to force serial
 execution.
 """

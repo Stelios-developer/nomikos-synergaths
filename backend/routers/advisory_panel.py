@@ -2,18 +2,13 @@ import json
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from contracts import AgentRequest as PanelRequest
 
 from services.advisory_panel import run_panel_stream
 from services.security import limiter, RATE_LIMIT_PANEL
 from services.session_scope import get_session_id
 
 router = APIRouter()
-
-
-class PanelRequest(BaseModel):
-    question: str
-    document_filter: str | None = None
 
 
 def _sse(event_type: str, payload: dict) -> str:

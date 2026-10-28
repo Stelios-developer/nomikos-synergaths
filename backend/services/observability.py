@@ -181,13 +181,15 @@ def traced_span(name: str, **attributes: Any):
     for key, value in attributes.items():
         if value is not None:
             span.set_attribute(key, value)
-    try:
-        with trace.use_span(span, end_on_exit=True):
+    with trace.use_span(span, end_on_exit=True, record_exception=False, set_status_on_exception=False):
+        try:
             yield span
-    except Exception as exc:
-        span.record_exception(exc)
-        span.set_status(Status(StatusCode.ERROR, str(exc)))
-        raise
+        except Exception as exc:
+            # Record before the exporter receives the ended span. Exception
+            # messages can contain provider request bodies or document excerpts.
+            span.record_exception(RuntimeError(type(exc).__name__))
+            span.set_status(Status(StatusCode.ERROR, type(exc).__name__))
+            raise
 
 
 def submit_with_context(executor: Executor, fn: Callable[..., T], *args: Any, **kwargs: Any) -> Future:
@@ -195,7 +197,7 @@ def submit_with_context(executor: Executor, fn: Callable[..., T], *args: Any, **
     concurrent.futures.ThreadPoolExecutor does NOT copy the calling thread's
     contextvars into worker threads by default — a plain `executor.submit`
     would silently drop request_id/usage-accumulator/OTel-span context, so
-    concurrent LLM calls (Advisory Panel, Debate Agents, Multi-hop Research)
+    concurrent LLM calls (Advisory Panel and Multi-hop Research)
     would still work, but their cost wouldn't be attributed to the parent
     request and their spans wouldn't nest under the parent trace.
 

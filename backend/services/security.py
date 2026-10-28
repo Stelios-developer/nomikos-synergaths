@@ -1,22 +1,5 @@
-"""
-Auth + rate limiting for public deployments.
-
-API key check is opt-in: if API_KEY isn't set in the environment, auth
-is disabled (so local dev / the test suite don't need to configure
-anything). Set API_KEY before deploying anywhere public — see README.
-
-Rate limits default fairly high (generous enough that the pytest suite
-never trips them) and are overridable via env vars so a real deploy can
-tighten them.
-
-AGENT_API_KEY is a SEPARATE, deliberately fail-closed gate for the
-code-execution surface (the standalone Action Agent) — see
-require_agent_api_key below. This is intentionally NOT the same
-on/off switch as the general API_KEY: a public deployment can
-reasonably want the RAG features open to anonymous visitors while
-keeping arbitrary code execution locked down, which a single
-all-or-nothing API_KEY can't express on its own.
-"""
+"""Request guards for the document-analysis product."""
+import hmac
 import os
 
 from fastapi import Header, HTTPException, status
@@ -24,81 +7,60 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 API_KEY = os.getenv("API_KEY")
-
-# Falls back to the general API_KEY if no dedicated one is set, so a
-# single API_KEY still locks everything (including code execution) by
-# default for anyone who just wants one simple switch. Set AGENT_API_KEY
-# to a DIFFERENT value if you want code execution locked while the rest
-# of the app stays open to the public.
-AGENT_API_KEY = os.getenv("AGENT_API_KEY") or API_KEY
+LEGACY_API_KEY_ENABLED = os.getenv("LEGACY_API_KEY_ENABLED", "false").lower() == "true"
+ADMIN_API_KEY = os.getenv("ADMIN_API_KEY")
+N8N_WEBHOOK_API_KEY = os.getenv("N8N_WEBHOOK_API_KEY")
 
 RATE_LIMIT_QUERY = os.getenv("RATE_LIMIT_QUERY", "20/minute")
 RATE_LIMIT_UPLOAD = os.getenv("RATE_LIMIT_UPLOAD", "10/minute")
-# Tighter than /query by default: each run does an LLM call *and* spawns a
-# subprocess (services/sandbox.py), so it's the most expensive route in the app.
-RATE_LIMIT_AGENT = os.getenv("RATE_LIMIT_AGENT", "10/minute")
-# The Supervisor can chain retrieval AND code execution in one request —
-# the single most expensive route in the app — so it defaults tighter still.
 RATE_LIMIT_SUPERVISOR = os.getenv("RATE_LIMIT_SUPERVISOR", "5/minute")
-# Advisory Panel / Debate fire several concurrent LLM calls plus a
-# synthesis call per request, so they default as tight as the Supervisor.
 RATE_LIMIT_PANEL = os.getenv("RATE_LIMIT_PANEL", "5/minute")
-RATE_LIMIT_DEBATE = os.getenv("RATE_LIMIT_DEBATE", "5/minute")
-# Research's cost scales with how many sub-questions the model decomposes
-# into (up to MAX_SUBQUESTIONS), so it gets a bit more headroom than Panel/Debate.
 RATE_LIMIT_RESEARCH = os.getenv("RATE_LIMIT_RESEARCH", "8/minute")
-# The Hallucination Auditor is a single LLM call — lighter than the other
-# multi-agent routes, so it gets the most headroom of the group.
 RATE_LIMIT_AUDIT = os.getenv("RATE_LIMIT_AUDIT", "15/minute")
-
-# Hard cap on a single uploaded PDF, in MB — rejected with a 400 before
-# ingestion ever starts (routers/upload.py). Guards against a public
-# deployment's disk/memory being exhausted by one huge upload.
+RATE_LIMIT_INTELLIGENCE = os.getenv("RATE_LIMIT_INTELLIGENCE", "4/minute")
 MAX_UPLOAD_SIZE_MB = int(os.getenv("MAX_UPLOAD_SIZE_MB", "20"))
+MAX_PDF_PAGES = int(os.getenv("MAX_PDF_PAGES", "250"))
+MAX_DOCUMENTS_PER_USER = int(os.getenv("MAX_DOCUMENTS_PER_USER", "100"))
+MAX_STORAGE_MB_PER_USER = int(os.getenv("MAX_STORAGE_MB_PER_USER", "500"))
 
 limiter = Limiter(key_func=get_remote_address)
 
 
 async def require_api_key(x_api_key: str | None = Header(default=None)):
-    if not API_KEY:
-        return  # auth disabled — no API_KEY configured
-    if x_api_key != API_KEY:
+    # This was used by the old browser-only build. It is opt-in now: the
+    # authenticated browser uses Better Auth HttpOnly sessions instead, and a
+    # VITE_* API key would be public by definition.
+    if not LEGACY_API_KEY_ENABLED or not API_KEY:
+        return
+    if not x_api_key or not hmac.compare_digest(x_api_key, API_KEY):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing or invalid API key. Send it as the X-API-Key header.",
         )
 
 
-async def require_agent_api_key(x_api_key: str | None = Header(default=None)):
-    """
-    Guards the standalone Action Agent router (routers/agent_action.py).
-    Deliberately fail-CLOSED, unlike require_api_key's fail-open default:
-    code execution is the one feature in this app with a real security
-    boundary attached to it (see services/sandbox.py's Docker-vs-subprocess
-    tradeoff), so "nobody configured anything" must mean "disabled", not
-    "wide open" — the opposite default from the general API_KEY, on purpose.
-    """
-    if not AGENT_API_KEY:
+async def require_admin_api_key(x_admin_api_key: str | None = Header(default=None)):
+    """Protect operational telemetry and evaluation data from normal users."""
+    if not ADMIN_API_KEY:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=(
-                "Code execution is disabled in this deployment. Set AGENT_API_KEY "
-                "(or API_KEY) and send it as X-API-Key to enable it."
-            ),
+            detail="Admin diagnostics are disabled.",
         )
-    if x_api_key != AGENT_API_KEY:
+    if not x_admin_api_key or not hmac.compare_digest(x_admin_api_key, ADMIN_API_KEY):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Code execution requires the X-API-Key header.",
+            detail="Missing or invalid admin credential.",
         )
 
 
-def agent_enabled_for_request(x_api_key: str | None) -> bool:
-    """
-    Non-dependency helper for routes where code execution is OPTIONAL
-    rather than a hard gate. Returns whether THIS specific request is
-    authorized to trigger run_code, without raising — callers use this to
-    decide whether to even offer run_code as a tool at all, or to reflect
-    unlock state back via GET /config.
-    """
-    return bool(AGENT_API_KEY) and x_api_key == AGENT_API_KEY
+async def require_n8n_webhook_api_key(x_n8n_api_key: str | None = Header(default=None)):
+    if not N8N_WEBHOOK_API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="n8n integration is disabled. Set N8N_WEBHOOK_API_KEY to enable it.",
+        )
+    if not x_n8n_api_key or not hmac.compare_digest(x_n8n_api_key, N8N_WEBHOOK_API_KEY):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing or invalid X-N8N-API-Key header.",
+        )

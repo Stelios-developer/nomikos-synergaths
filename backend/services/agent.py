@@ -144,6 +144,14 @@ def _evaluate(state: AgentState) -> AgentState:
 
     flags = _grade_chunks(state["question"], state["chunks"])
     relevant_chunks = [c for c, keep in zip(state["chunks"], flags) if keep]
+    # Retrieval has already limited these chunks to the active document and
+    # ranked them by vector + keyword relevance.  The LLM grader is a useful
+    # refinement, but it must not turn a successful retrieval into an empty
+    # answer just because it judged every chunk too strictly.  In that case
+    # retain the ranked evidence and let the answer model state any limits.
+    if not relevant_chunks:
+        return {**state, "chunks": state["chunks"], "should_retry": False}
+
     should_retry = (not relevant_chunks) and state["iteration"] < MAX_ITERATIONS
     return {**state, "chunks": relevant_chunks, "should_retry": should_retry}
 

@@ -1,0 +1,26 @@
+name: dmc-vector
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.7-pg17-bookworm@sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d
+    environment:
+      POSTGRES_DB: dmc
+      POSTGRES_USER: dmc_owner
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a unique migration-owner password}
+      DMC_DB_PASSWORD: ${DMC_DB_PASSWORD:?Set a separate runtime password}
+    ports:
+      - "127.0.0.1:${DMC_VECTOR_PORT:-5441}:5432"
+    volumes:
+      - document-vectors:/var/lib/postgresql/data
+      - ./init-runtime.sh:/docker-entrypoint-initdb.d/010-runtime.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dmc_owner -d dmc"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    shm_size: 128m
+    mem_limit: 1g
+    pids_limit: 128
+    security_opt: ["no-new-privileges:true"]
+volumes:
+  document-vectors:

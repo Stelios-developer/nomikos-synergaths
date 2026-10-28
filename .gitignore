@@ -1,5 +1,12 @@
 # Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
 backend/venv/
+backend/.venv/
+**/.venv/
+**/.venv-*/
+**/venv/
 backend/__pycache__/
 backend/**/__pycache__/
 backend/.pytest_cache/
@@ -9,15 +16,57 @@ backend/evaluation.db
 backend/evaluation.db-journal
 backend/observability.db
 backend/observability.db-journal
+backend/document_cases.db
+backend/document_cases.db-journal
+/observability.db
+/observability.db-journal
+/document_cases.db
+/document_cases.db-journal
+/evaluation.db
+/evaluation.db-journal
 backend/.env
+n8n/.env
+n8n/exported-*.json
+n8n/*.export.json
 backend/storage/
 backend/_*_tmp.py
+backend/.codex-pytest-*/
 
 # Node
 frontend/node_modules/
 frontend/dist/
 frontend/.env
 frontend/.env.production
+auth-service/node_modules/
+auth-service/.env
+
+# Local runtime artifacts
+*.log
+output/
+tmp/
+n8n/*.sqlite
+security/pdf_worker/.env
+examples/test-documents/*.pdf
 
 # OS
 .DS_Store
+
+# Private environments and operator/runtime state (including future services).
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.*.example
+.aws/
+.runtime/
+.tools/
+**/.terraform/
+*.tfstate*
+*.tfplan
+*.tfvars
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+**/playwright-report/
+**/test-results/

@@ -1,0 +1,23 @@
+{
+  "name": "documents-made-clear-auth-service",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "test": "tsx --test tests/*.test.ts",
+    "db:migrate": "npx @better-auth/cli migrate --config src/auth.ts"
+  },
+  "dependencies": {
+    "better-auth": "1.7.14",
+    "dotenv": "^16.6.1",
+    "pg": "^8.16.3",
+    "tsx": "^4.20.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.15.5",
+    "typescript": "^5.9.2"
+  }
+}

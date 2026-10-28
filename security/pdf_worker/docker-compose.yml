@@ -1,0 +1,70 @@
+services:
+  clamav:
+    image: clamav/clamav:1.5.4@sha256:0e31ce089574268aefa0b543767d66b70240ab51ed49eec53e07f18d5629d817
+    restart: unless-stopped
+    volumes:
+      - clamav_signatures:/var/lib/clamav
+    networks:
+      - scanner
+      - updates
+    mem_limit: 4g
+    pids_limit: 256
+
+  pdf-worker:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      clamav:
+        condition: service_healthy
+    environment:
+      - CLAMAV_HOST=clamav
+      - CLAMAV_PORT=3310
+      - PDF_SECURITY_TOKEN=${PDF_SECURITY_TOKEN:?Set a unique 32+ character PDF_SECURITY_TOKEN in .env}
+      - MAX_UPLOAD_SIZE_MB=20
+      - MAX_PDF_PAGES=250
+    networks:
+      - scanner
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=64m,noexec,nosuid
+    mem_limit: 1g
+    cpus: 1.0
+    pids_limit: 64
+    user: "10001:10001"
+
+  gateway:
+    image: nginx:1.29-alpine@sha256:5616878291a2eed594aee8db4dade5878cf7edcb475e59193904b198d9b830de
+    restart: unless-stopped
+    depends_on:
+      - pdf-worker
+    ports:
+      - "127.0.0.1:5186:8080"
+    networks:
+      - scanner
+      - ingress
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /var/cache/nginx:size=32m,noexec,nosuid,uid=101,gid=101
+      - /var/run:size=1m,noexec,nosuid,uid=101,gid=101
+    mem_limit: 128m
+    pids_limit: 32
+    user: "101:101"
+
+networks:
+  scanner:
+    internal: true
+  ingress: {}
+  updates: {}
+
+volumes:
+  clamav_signatures: {}

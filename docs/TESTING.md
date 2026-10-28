@@ -1,49 +1,81 @@
-# Test Plan — Document RAG Assistant
+# Testing checklist
 
-Χρησιμοποίησε το `test_document.pdf` (ήδη στον φάκελό σου) για όλα τα παρακάτω, ώστε να έχεις σταθερή αναφορά. Backend πρέπει να τρέχει στο `:8010`, frontend στο dev URL του Vite (βλ. προηγούμενο μήνυμα).
+The dark-workspace browser regression suite and its isolated test-data
+boundaries are documented in [FRONTEND_DESIGN.md](FRONTEND_DESIGN.md).
 
-Αν κάτι σκάσει, στείλε μου το ακριβές traceback από το terminal του backend.
+1. Upload a text PDF and confirm it appears in the document list.
+2. Ask the Document Assistant a question and open a page citation.
+3. Run the Supervisor and confirm its answer is grounded in the same documents.
+4. Use the Research Agent for a compound question and confirm it shows sub-questions.
+5. Run Expert Review only for a high-impact decision and inspect the moderator summary.
+6. Use the Hallucination Auditor to check an answer's supporting evidence.
+7. Upload a PDF through the application and confirm that **Documents Made Clear · Agent
+   Orchestrator** runs the sequential case stages. Verify the final app result
+   is either the verified pack or the human-review pack. Completed execution
+   payloads are intentionally not retained in n8n; do not enable history just
+   to make this test visible. Watch live execution or inspect app case state.
 
-## 1. 📄 Document Assistant (core RAG)
+Automated verification:
 
-1. Ανέβασε το `test_document.pdf`.
-2. Ρώτα: **"Ποιος είναι ο συντελεστής φορολογίας νομικών προσώπων;"** — περίμενε απάντηση με το 22% και citation `[1]`.
-3. Follow-up χωρίς επανάληψη συμφραζομένων: **"και ποιο άρθρο νόμου το ορίζει;"** — ελέγχει αν κρατάει ιστορικό συνομιλίας.
-4. Κάνε κλικ στο `[1]` — πρέπει να ανοίξει το PDF viewer με highlight στο σωστό σημείο της σελίδας.
-5. Κάτω από την απάντηση, πάτα **"🔎 Έλεγχος πηγών"** — ο Hallucination Auditor θα βαθμολογήσει κάθε πρόταση (supported/unsupported).
-6. Δεξί panel → tab **Evaluation** — πρέπει να εμφανιστεί faithfulness/relevance score για το query.
-7. Δεξί panel → tab **📊 Ops** — πρέπει να δεις πραγματικό αριθμό tokens, κόστος σε $, και latency για ΑΥΤΟ το request.
+```powershell
+# Repository root; requires installed frontend/auth deps and backend virtualenv.
+npm run check
+npm test
+npm run test:backend
+```
 
-## 2. ⚡ Action Agent (ανεξάρτητο, όχι RAG)
+Security controls, actual local verification, unresolved dependency advisories,
+and production blockers are recorded in `SECURITY_RELEASE_GATE.md`. Backup
+and isolated restore tooling is in `scripts/`; keep its output and DPAPI keys
+out of Git. Run `npm audit` in both Node services and audit the actual Python
+deployment environment; a passing build is not a vulnerability audit.
 
-Δώσε goal: **"Γράψε Python κώδικα που υπολογίζει τους πρώτους 20 αριθμούς Fibonacci και τύπωσέ τους."**
+New regression coverage lives in `backend/tests/test_request_security.py` and
+`backend/tests/test_document_publication.py`: untrusted origins, CSRF headers,
+pre-parser stream limits, source/case commit failures, prior-generation rollback,
+interrupted-publication quarantine, concurrent workspace reads and responsive
+async work during heavy ingestion. Auth tests verify both production flags.
+Chroma has been replaced by PostgreSQL/pgvector. Run `npm run test:integration`
+for the real SQL/RLS boundary; ordinary backend tests use an in-memory test
+double for vector storage. [Migration and restore evidence](engineering/SECURE_STORAGE.md).
 
-Περίμενε να δεις trace: Plan → Code → Review → (αν χρειαστεί, self-correction) → τελικό stdout με τους 20 αριθμούς.
+## Isolated browser regression
 
-## 3. 🧭 Supervisor
+Start a dedicated frontend in one terminal:
 
-- Ρώτα κάτι που χρειάζεται αναζήτηση εγγράφου: **"Τι λέει το έγγραφο για την προθεσμία δήλωσης;"** — πρέπει να δρομολογήσει σε `search_documents`.
-- Ρώτα κάτι που χρειάζεται εκτέλεση κώδικα: **"Υπολόγισε το άθροισμα των αριθμών από 1 έως 100."** — πρέπει να δρομολογήσει σε `run_code`.
+```powershell
+npm --prefix frontend run dev -- --host 127.0.0.1 --port 5197 --strictPort
+```
 
-## 4. ⚖️ Advisory Panel
+In another terminal from the repository root:
 
-Ρώτα κάτι με περιθώριο ερμηνείας: **"Μπορεί μια επιχείρηση να διεκδικήσει την υπερέκπτωση Ε&Α πριν λάβει πιστοποίηση από τη ΓΓΕΚ;"**
+```powershell
+$env:UI_TEST_URL='http://127.0.0.1:5197'
+$env:UI_TEST_ENGINE='chromium' # also firefox or webkit
+$env:UI_TEST_BROWSER='chrome' # optional Chromium channel; omit for bundled browsers
+npm run test:ui
+```
 
-Περίμενε 3 ταυτόχρονες γνώμες (Επιθετικός / Συντηρητικός / Αναλυτής Κινδύνου) + τελική σύνθεση από τον Moderator.
+Install the matching bundled browsers from `frontend/` with
+`npx --no-install playwright install` if needed. When testing Firefox or
+WebKit, unset `UI_TEST_BROWSER`. API/auth requests are intercepted with synthetic
+fixtures; external requests are blocked. The command refuses the real local
+workspace port 5173. Screenshots and accessibility JSON go to ignored
+`output/engineering-ui/<engine>/`. Inspect axe `incomplete` entries manually.
 
-## 5. 🥊 Debate Agents
+The tests include real loopback webhook faults, but not live PostgreSQL/auth,
+real n8n workflow execution, malware-engine validation or a model-quality
+benchmark. Current results and limitations: [validation](engineering/VALIDATION.md).
 
-Ρώτα κάτι με δύο πλευρές: **"Πρέπει μια επιχείρηση να υιοθετήσει την πιο επιθετική ερμηνεία της έκπτωσης Ε&Α;"**
+Separate image checks are available after building the candidate tags:
 
-Περίμενε 2 γύρους επιχειρημάτων (Υπέρ/Κατά) με απευθείας ανασκευή του αντιπάλου, + τελική κρίση του Judge.
+```powershell
+backend/.venv/Scripts/python.exe scripts/integration_pdf_image.py
+backend/.venv/Scripts/python.exe scripts/integration_auth_image.py
+```
 
-## 6. 🔬 Research Agent
-
-Ρώτα σύνθετη ερώτηση: **"Ποια είναι η προθεσμία δήλωσης, ο συντελεστής φορολογίας εταιρειών, και το ποσοστό υπερέκπτωσης Ε&Α;"**
-
-Περίμενε να τη σπάσει σε 2-3 υπο-ερωτήσεις, να ανακτήσει αποσπάσματα ξεχωριστά για καθεμία, και μετά μία ενιαία απάντηση που τις συνδυάζει όλες.
-
-## Τι να προσέξεις γενικά
-
-- Κάθε tab πρέπει να στριμάρει (streaming), όχι να εμφανίζεται όλο μαζί στο τέλος.
-- Το **📊 Ops** tab θα γεμίζει προοδευτικά καθώς χρησιμοποιείς κι άλλα tabs — καλή ευκαιρία να δεις ότι το Advisory Panel/Debate/Research (πολλαπλά LLM calls) κοστίζουν πράγματι περισσότερο ανά request από το απλό Document Assistant.
+These run synthetic input with no network or host volumes and a read-only
+root. PDF tests perform real CDR/OCR; auth tests cover startup/HTTP/configuration
+and unavailable-DB failure. They do not replace live ClamAV or authenticated
+session integration. `npm run test:integration` separately verifies PostgreSQL
+with a disposable database.

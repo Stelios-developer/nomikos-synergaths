@@ -1,0 +1,1117 @@
+{
+  "id": "nexusAgentOrchestrator",
+  "name": "Documents Made Clear · Agent Orchestrator",
+  "description": "The real evidence-first document intelligence orchestration. The application triggers the case webhook, n8n invokes every stage through authenticated backend endpoints, and specialist agents remain visible as secure on-demand branches.",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "# Documents Made Clear · AGENT ORCHESTRATOR\n### Evidence-first automation · visible, traceable, fail-closed\n\nEvery functional node below calls a real FastAPI endpoint. The application forwards its server-side integration header through n8n; the backend validates it before any agent runs. Complete case evidence remains in the backend.",
+        "height": 180,
+        "width": 3430,
+        "color": 7
+      },
+      "id": "0c1571ee-cde3-4d76-9bb2-0e7d1f9ad001",
+      "name": "Documents Made Clear · Agent Orchestrator",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        240,
+        -590
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 01 · SECURE APPLICATION INTAKE\nA pre-indexed PDF enters from the application with an integration header. n8n forwards that header only to the backend, where it is validated before the case starts.",
+        "height": 160,
+        "width": 870,
+        "color": 5
+      },
+      "id": "0c1571ee-cde3-4d76-9bb2-0e7d1f9ad002",
+      "name": "01 · Secure application intake",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        240,
+        -370
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 02 · CASE INTELLIGENCE\nThe stages are deliberately sequential: each agent reads the persisted, evidence-scoped case state created by the previous stage. Parallelising these agents would be incorrect.",
+        "height": 160,
+        "width": 1760,
+        "color": 4
+      },
+      "id": "0c1571ee-cde3-4d76-9bb2-0e7d1f9ad003",
+      "name": "02 · Case intelligence",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1130,
+        -370
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 03 · FAIL-CLOSED RELEASE GATE\nThe Hallucination Auditor is mandatory. A failed or unavailable audit never becomes an automatic action: the final pack is explicitly marked for human review.",
+        "height": 160,
+        "width": 820,
+        "color": 2
+      },
+      "id": "0c1571ee-cde3-4d76-9bb2-0e7d1f9ad004",
+      "name": "03 · Fail-closed release gate",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2920,
+        -370
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 04 · SECURED ON-DEMAND INTELLIGENCE\nThese are genuine, independent agent routes — not decorative branches. Each requires an integration header, calls its respective backend agent, and the backend validates the key before returning real citations / trace in JSON.\n\nUse them only when the request needs that capability; the core case pipeline never runs unnecessary agents just to make a diagram look busy.",
+        "height": 190,
+        "width": 3430,
+        "color": 6
+      },
+      "id": "0c1571ee-cde3-4d76-9bb2-0e7d1f9ad005",
+      "name": "04 · Secured on-demand intelligence",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        240,
+        350
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "nexus-agent-orchestrator/case",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "0c1571ee-cde3-4d76-9bb2-0e7d1f9ad006",
+      "name": "Webhook · App document ready",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        350,
+        -90
+      ],
+      "webhookId": "c84fc037-7f64-4cee-8451-0037823bc101"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e0256ad2-6e36-45b2-9d2d-5b7c13160101",
+              "leftValue": "={{ $json.headers['x-n8n-api-key'] }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0c1571ee-cde3-4d76-9bb2-0e7d1f9ad007",
+      "name": "Require app integration header",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        650,
+        -90
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/integrations/n8n/cases/start",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-API-Key",
+              "value": "={{ $json.headers['x-n8n-api-key'] }}"
+            },
+            {
+              "name": "X-Workspace-ID",
+              "value": "={{ $json.body.workspace_id || $json.headers['x-workspace-id'] }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ filename: $json.body.filename, analysis_job_id: $json.body.analysis_job_id || null }) }}",
+        "options": {}
+      },
+      "id": "0c1571ee-cde3-4d76-9bb2-0e7d1f9ad010",
+      "name": "Start document case",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        990,
+        10
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/integrations/n8n/cases/document-dna",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-API-Key",
+              "value": "={{ $('Webhook · App document ready').item.json.headers['x-n8n-api-key'] }}"
+            },
+            {
+              "name": "X-Workspace-ID",
+              "value": "={{ $json.workspace_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ case_id: $json.case_id }) }}",
+        "options": {}
+      },
+      "id": "0c1571ee-cde3-4d76-9bb2-0e7d1f9ad011",
+      "name": "Document DNA & Quality Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1280,
+        10
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/integrations/n8n/cases/facts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-API-Key",
+              "value": "={{ $('Webhook · App document ready').item.json.headers['x-n8n-api-key'] }}"
+            },
+            {
+              "name": "X-Workspace-ID",
+              "value": "={{ $json.workspace_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ case_id: $json.case_id }) }}",
+        "options": {}
+      },
+      "id": "0c1571ee-cde3-4d76-9bb2-0e7d1f9ad012",
+      "name": "Facts, Obligations & Deadlines Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1590,
+        10
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/integrations/n8n/cases/risks",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-API-Key",
+              "value": "={{ $('Webhook · App document ready').item.json.headers['x-n8n-api-key'] }}"
+            },
+            {
+              "name": "X-Workspace-ID",
+              "value": "={{ $json.workspace_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ case_id: $json.case_id }) }}",
+        "options": {}
+      },
+      "id": "0c1571ee-cde3-4d76-9bb2-0e7d1f9ad013",
+      "name": "Risk Prioritisation Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1910,
+        10
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/integrations/n8n/cases/draft-action-pack",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-API-Key",
+              "value": "={{ $('Webhook · App document ready').item.json.headers['x-n8n-api-key'] }}"
+            },
+            {
+              "name": "X-Workspace-ID",
+              "value": "={{ $json.workspace_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ case_id: $json.case_id }) }}",
+        "options": {}
+      },
+      "id": "0c1571ee-cde3-4d76-9bb2-0e7d1f9ad014",
+      "name": "Decision Brief & Action Pack Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2240,
+        10
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/integrations/n8n/cases/audit",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-API-Key",
+              "value": "={{ $('Webhook · App document ready').item.json.headers['x-n8n-api-key'] }}"
+            },
+            {
+              "name": "X-Workspace-ID",
+              "value": "={{ $json.workspace_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ case_id: $json.case_id }) }}",
+        "options": {}
+      },
+      "id": "0c1571ee-cde3-4d76-9bb2-0e7d1f9ad015",
+      "name": "Mandatory Hallucination Auditor",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2570,
+        10
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e0256ad2-6e36-45b2-9d2d-5b7c13160102",
+              "leftValue": "={{ $json.audit.passed }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0c1571ee-cde3-4d76-9bb2-0e7d1f9ad016",
+      "name": "IF · Evidence quality gate",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2870,
+        10
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/integrations/n8n/cases/finalize",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-API-Key",
+              "value": "={{ $('Webhook · App document ready').item.json.headers['x-n8n-api-key'] }}"
+            },
+            {
+              "name": "X-Workspace-ID",
+              "value": "={{ $json.workspace_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ case_id: $json.case_id }) }}",
+        "options": {}
+      },
+      "id": "0c1571ee-cde3-4d76-9bb2-0e7d1f9ad017",
+      "name": "Finalize verified action pack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3160,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/integrations/n8n/cases/finalize",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-API-Key",
+              "value": "={{ $('Webhook · App document ready').item.json.headers['x-n8n-api-key'] }}"
+            },
+            {
+              "name": "X-Workspace-ID",
+              "value": "={{ $json.workspace_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ case_id: $json.case_id }) }}",
+        "options": {}
+      },
+      "id": "0c1571ee-cde3-4d76-9bb2-0e7d1f9ad018",
+      "name": "Finalize human-review pack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3160,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "nexus-agent-orchestrator/agents/document-assistant",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "0c1571ee-cde3-4d76-9bb2-0e7d1f9ad019",
+      "name": "Webhook · Document Assistant request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        420,
+        650
+      ],
+      "webhookId": "c84fc037-7f64-4cee-8451-0037823bc102"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e0256ad2-6e36-45b2-9d2d-5b7c13160103",
+              "leftValue": "={{ $json.headers['x-n8n-api-key'] }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0c1571ee-cde3-4d76-9bb2-0e7d1f9ad020",
+      "name": "Require Document Assistant header",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        740,
+        650
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/integrations/n8n/analyze",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-API-Key",
+              "value": "={{ $json.headers['x-n8n-api-key'] }}"
+            },
+            {
+              "name": "X-Workspace-ID",
+              "value": "={{ $json.headers['x-workspace-id'] || $json.body.workspace_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ question: $json.body.question, document_filter: $json.body.document_filter || null }) }}",
+        "options": {}
+      },
+      "id": "0c1571ee-cde3-4d76-9bb2-0e7d1f9ad021",
+      "name": "Document Assistant (RAG)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1070,
+        650
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "nexus-agent-orchestrator/agents/supervisor",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "0c1571ee-cde3-4d76-9bb2-0e7d1f9ad022",
+      "name": "Webhook · Supervisor request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        1900,
+        650
+      ],
+      "webhookId": "c84fc037-7f64-4cee-8451-0037823bc103"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e0256ad2-6e36-45b2-9d2d-5b7c13160104",
+              "leftValue": "={{ $json.headers['x-n8n-api-key'] }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0c1571ee-cde3-4d76-9bb2-0e7d1f9ad023",
+      "name": "Require Supervisor header",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2220,
+        650
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/integrations/n8n/agents/supervisor",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-API-Key",
+              "value": "={{ $json.headers['x-n8n-api-key'] }}"
+            },
+            {
+              "name": "X-Workspace-ID",
+              "value": "={{ $json.headers['x-workspace-id'] || $json.body.workspace_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ question: $json.body.question, document_filter: $json.body.document_filter || null }) }}",
+        "options": {}
+      },
+      "id": "0c1571ee-cde3-4d76-9bb2-0e7d1f9ad024",
+      "name": "Supervisor Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2550,
+        650
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "nexus-agent-orchestrator/agents/research",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "0c1571ee-cde3-4d76-9bb2-0e7d1f9ad025",
+      "name": "Webhook · Research request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        420,
+        940
+      ],
+      "webhookId": "c84fc037-7f64-4cee-8451-0037823bc104"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e0256ad2-6e36-45b2-9d2d-5b7c13160105",
+              "leftValue": "={{ $json.headers['x-n8n-api-key'] }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0c1571ee-cde3-4d76-9bb2-0e7d1f9ad026",
+      "name": "Require Research header",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        740,
+        940
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/integrations/n8n/agents/research",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-API-Key",
+              "value": "={{ $json.headers['x-n8n-api-key'] }}"
+            },
+            {
+              "name": "X-Workspace-ID",
+              "value": "={{ $json.headers['x-workspace-id'] || $json.body.workspace_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ question: $json.body.question, document_filter: $json.body.document_filter || null }) }}",
+        "options": {}
+      },
+      "id": "0c1571ee-cde3-4d76-9bb2-0e7d1f9ad027",
+      "name": "Research Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1070,
+        940
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "nexus-agent-orchestrator/agents/expert-review",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "0c1571ee-cde3-4d76-9bb2-0e7d1f9ad028",
+      "name": "Webhook · Expert Review request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        1900,
+        940
+      ],
+      "webhookId": "c84fc037-7f64-4cee-8451-0037823bc105"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e0256ad2-6e36-45b2-9d2d-5b7c13160106",
+              "leftValue": "={{ $json.headers['x-n8n-api-key'] }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0c1571ee-cde3-4d76-9bb2-0e7d1f9ad029",
+      "name": "Require Expert Review header",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2220,
+        940
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/integrations/n8n/agents/expert-review",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-API-Key",
+              "value": "={{ $json.headers['x-n8n-api-key'] }}"
+            },
+            {
+              "name": "X-Workspace-ID",
+              "value": "={{ $json.headers['x-workspace-id'] || $json.body.workspace_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ question: $json.body.question, document_filter: $json.body.document_filter || null }) }}",
+        "options": {}
+      },
+      "id": "0c1571ee-cde3-4d76-9bb2-0e7d1f9ad030",
+      "name": "Expert Review · 3 advisors + moderator",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2550,
+        940
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Release outcome\n**PASS** → verified decision brief, still awaiting human approval.\n\n**REVIEW** → unsupported / incomplete claims are withheld; no action is created automatically.",
+        "height": 140,
+        "width": 650,
+        "color": 3
+      },
+      "id": "0c1571ee-cde3-4d76-9bb2-0e7d1f9ad031",
+      "name": "Human approval is always explicit",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3090,
+        290
+      ]
+    },
+    {
+      "id": "1a9cf7d4-4268-5b9b-8562-3a81b8e88b45",
+      "name": "Respond with analysis result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1760,
+        420
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "id": "db967944-187f-57d4-9e7f-4bae9c891cff",
+      "name": "Reject missing integration header",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        520,
+        980
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"error\":\"An integration header is required.\"}",
+        "options": {
+          "responseCode": 401
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook · App document ready": {
+      "main": [
+        [
+          {
+            "node": "Require app integration header",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Require app integration header": {
+      "main": [
+        [
+          {
+            "node": "Start document case",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reject missing integration header",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start document case": {
+      "main": [
+        [
+          {
+            "node": "Document DNA & Quality Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Document DNA & Quality Agent": {
+      "main": [
+        [
+          {
+            "node": "Facts, Obligations & Deadlines Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Facts, Obligations & Deadlines Agent": {
+      "main": [
+        [
+          {
+            "node": "Risk Prioritisation Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Risk Prioritisation Agent": {
+      "main": [
+        [
+          {
+            "node": "Decision Brief & Action Pack Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decision Brief & Action Pack Agent": {
+      "main": [
+        [
+          {
+            "node": "Mandatory Hallucination Auditor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mandatory Hallucination Auditor": {
+      "main": [
+        [
+          {
+            "node": "IF · Evidence quality gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF · Evidence quality gate": {
+      "main": [
+        [
+          {
+            "node": "Finalize verified action pack",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Finalize human-review pack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook · Document Assistant request": {
+      "main": [
+        [
+          {
+            "node": "Require Document Assistant header",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Require Document Assistant header": {
+      "main": [
+        [
+          {
+            "node": "Document Assistant (RAG)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reject missing integration header",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook · Supervisor request": {
+      "main": [
+        [
+          {
+            "node": "Require Supervisor header",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Require Supervisor header": {
+      "main": [
+        [
+          {
+            "node": "Supervisor Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reject missing integration header",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook · Research request": {
+      "main": [
+        [
+          {
+            "node": "Require Research header",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Require Research header": {
+      "main": [
+        [
+          {
+            "node": "Research Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reject missing integration header",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook · Expert Review request": {
+      "main": [
+        [
+          {
+            "node": "Require Expert Review header",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Require Expert Review header": {
+      "main": [
+        [
+          {
+            "node": "Expert Review · 3 advisors + moderator",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reject missing integration header",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finalize verified action pack": {
+      "main": [
+        [
+          {
+            "node": "Respond with analysis result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finalize human-review pack": {
+      "main": [
+        [
+          {
+            "node": "Respond with analysis result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Document Assistant (RAG)": {
+      "main": [
+        [
+          {
+            "node": "Respond with analysis result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supervisor Agent": {
+      "main": [
+        [
+          {
+            "node": "Respond with analysis result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Research Agent": {
+      "main": [
+        [
+          {
+            "node": "Respond with analysis result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expert Review · 3 advisors + moderator": {
+      "main": [
+        [
+          {
+            "node": "Respond with analysis result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "none",
+    "saveManualExecutions": false,
+    "saveExecutionProgress": false
+  },
+  "active": true,
+  "versionId": "0c1571ee-cde3-4d76-9bb2-0e7d1f9ad999"
+}

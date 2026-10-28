@@ -2,7 +2,7 @@ import json
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from contracts import ConversationRequest as QueryRequest
 
 from services.agent import agentic_retrieve_stream
 from services.llm import stream_answer
@@ -11,17 +11,6 @@ from services.security import limiter, RATE_LIMIT_QUERY
 from services.session_scope import DEFAULT_SESSION_ID, get_session_id
 
 router = APIRouter()
-
-
-class HistoryTurn(BaseModel):
-    role: str  # "user" | "assistant"
-    content: str
-
-
-class QueryRequest(BaseModel):
-    question: str
-    document_filter: str | None = None
-    history: list[HistoryTurn] | None = None  # prior turns, oldest first — see services/agent.py
 
 
 def _sse(event_type: str, payload: dict) -> str:
@@ -63,8 +52,8 @@ def _stream_response(
         for token in stream_answer(question, chunks, history):
             full_answer += token
             yield _sse("token", {"content": token})
-    except Exception as e:
-        yield _sse("error", {"message": str(e)})
+    except Exception:
+        yield _sse("error", {"message": "Answer generation is temporarily unavailable. Please retry later."})
         return
 
     # Faithfulness + relevance scoring runs after the full answer is in,

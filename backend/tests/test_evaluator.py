@@ -1,3 +1,4 @@
+import sqlite3
 from unittest.mock import patch
 
 from services import evaluator
@@ -14,6 +15,8 @@ def test_evaluate_and_store_persists_scores():
     assert agg["total_queries"] == 1
     assert agg["avg_faithfulness"] == 0.9
     assert agg["avg_relevance"] == 0.8
+    with sqlite3.connect(evaluator.DB_PATH) as conn:
+        assert conn.execute("SELECT question, answer FROM evaluations").fetchone() == ("", "")
 
 
 def test_get_aggregate_averages_across_multiple_queries():
@@ -27,7 +30,7 @@ def test_get_aggregate_averages_across_multiple_queries():
     assert abs(agg["avg_faithfulness"] - 0.7) < 1e-6
     assert abs(agg["avg_relevance"] - 0.7) < 1e-6
     assert len(agg["history"]) == 2
-    assert agg["history"][0]["question"] == "q2"  # most recent first
+    assert agg["history"][0]["question"] == "Query details not retained"
 
 
 def test_get_aggregate_empty_db_returns_zeros():

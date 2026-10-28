@@ -2,47 +2,181 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
   pull_request:
-    branches: [main]
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
+  repository-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.11"
+      - name: Reject private runtime files and recognizable secrets
+        run: python scripts/check_git_index.py
+      - name: Test the index safety checker
+        run: python -m unittest discover -s scripts/tests -p 'test_*.py'
+      - name: Architecture, import graph and documentation links
+        run: python scripts/quality/repository_check.py
+      - name: Dependency lock provenance
+        run: python scripts/lock_dependencies.py --check
+
   backend-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: { persist-credentials: false }
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         with:
-          python-version: "3.11"
+          python-version: "3.12"
           cache: "pip"
-          cache-dependency-path: backend/requirements.txt
+          cache-dependency-path: backend/requirements-linux-py312.lock
 
       - name: Install dependencies
-        run: pip install -r requirements.txt -r requirements-dev.txt
+        run: |
+          python -m pip install --upgrade pip==26.2.2
+          pip install --require-hashes --only-binary=:all: -r requirements-linux-py312.lock -r requirements-test.lock
 
       - name: Run tests
         run: pytest --cov=services --cov=routers --cov=db --cov-report=term-missing
+      - name: Python static correctness
+        run: python -m ruff check . ../scripts --select E9,F63,F7,F82
+      - name: Real SQL isolation and durable-job integration
+        working-directory: .
+        run: |
+          python - <<'PY'
+          import secrets
+          from pathlib import Path
+          target=Path('infra/vector/.env')
+          target.write_text('POSTGRES_PASSWORD='+secrets.token_urlsafe(40)+'\nDMC_DB_PASSWORD='+secrets.token_urlsafe(40)+'\nDMC_VECTOR_PORT=5441\n')
+          target.chmod(0o600)
+          PY
+          docker compose -f infra/vector/compose.yml --env-file infra/vector/.env up -d --wait --wait-timeout 60
+          python scripts/setup_vector_database.py
+          python scripts/integration_vectors.py
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with: { node-version: "22", package-manager-cache: false }
+      - name: Real Better Auth cookies and backend revocation in a disposable DB
+        working-directory: .
+        run: |
+          npm --prefix auth-service ci --ignore-scripts
+          python scripts/integration_auth_sessions.py
+      - name: Remove only the isolated CI vector fixture
+        if: always()
+        working-directory: .
+        run: |
+          if [ -f infra/vector/.env ]; then
+            docker compose -f infra/vector/compose.yml --env-file infra/vector/.env down --volumes
+          fi
 
   frontend-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: { persist-credentials: false }
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
         run: npm ci
 
+      - name: Lint
+        run: npm run lint
+
+      - name: Transport, lifecycle and branding regression tests
+        run: npm test
+
       - name: Typecheck + build
         run: npm run build
+
+  auth-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: auth-service
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: { persist-credentials: false }
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: auth-service/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npx --no-install tsc --noEmit
+
+      - name: Auth and account email regression tests
+        run: npm test
+
+  browser-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [chromium, firefox, webkit]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm --prefix frontend ci
+      - name: Install the matching browser
+        working-directory: frontend
+        run: npx --no-install playwright install --with-deps ${{ matrix.engine }}
+      - name: Isolated browser and accessibility regressions
+        env:
+          UI_TEST_URL: http://127.0.0.1:5197
+          UI_TEST_ENGINE: ${{ matrix.engine }}
+        run: |
+          npm --prefix frontend run dev -- --host 127.0.0.1 --port 5197 --strictPort &
+          server=$!
+          trap 'kill "$server" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:5197/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:5197/ >/dev/null
+          npm run test:ui
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: synthetic-browser-${{ matrix.engine }}
+          path: output/engineering-ui/${{ matrix.engine }}/
+          retention-days: 7
+
+  security:
+    uses: ./.github/workflows/security.yml

@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-from db.chroma_client import get_collection
+from db.vector_store import get_collection
 from services import retrieval
 from services.session_scope import DEFAULT_SESSION_ID
 
@@ -13,6 +13,7 @@ def _seed_collection():
     # isn't what these tests are meant to exercise.
     col = get_collection()
     col.add(
+        workspace_id=DEFAULT_SESSION_ID,
         ids=["a", "b", "c"],
         embeddings=[[1, 0, 0], [0, 1, 0], [0, 0, 1]],
         documents=[

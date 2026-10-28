@@ -14,7 +14,11 @@ export interface CitationHandlers {
 // latter as <strong>. This is the single place both concerns compose,
 // which is why block-level rendering below always routes inline text
 // through here rather than dumping raw strings.
-function renderInline(text: string, handlers: CitationHandlers, keyPrefix: string): ReactNode[] {
+function renderInline(
+  text: string,
+  handlers: CitationHandlers,
+  keyPrefix: string,
+): ReactNode[] {
   const nodes: ReactNode[] = []
   const citationParts = text.split(/(\[\d+\])/g)
 
@@ -24,16 +28,26 @@ function renderInline(text: string, handlers: CitationHandlers, keyPrefix: strin
       const citationIndex = parseInt(citationMatch[1], 10) - 1
       const citation = handlers.citations?.[citationIndex]
       nodes.push(
-        <sup
-          key={`${keyPrefix}-c${i}`}
-          onMouseEnter={() => handlers.onHoverCitation?.(citationIndex)}
-          onMouseLeave={() => handlers.onHoverCitation?.(null)}
-          onClick={() => citation && handlers.onViewCitation?.(citation)}
-          className={`mx-0.5 rounded bg-gold/20 px-1 font-medium text-gold ${
-            citation ? 'cursor-pointer hover:bg-gold/30' : ''
-          }`}
-        >
-          {part}
+        <sup key={`${keyPrefix}-c${i}`}>
+          <button
+            type="button"
+            disabled={!citation}
+            aria-label={
+              citation
+                ? `Open source ${citationIndex + 1}, page ${citation.page}`
+                : `Source ${citationIndex + 1} unavailable`
+            }
+            onMouseEnter={() => handlers.onHoverCitation?.(citationIndex)}
+            onMouseLeave={() => handlers.onHoverCitation?.(null)}
+            onFocus={() => handlers.onHoverCitation?.(citationIndex)}
+            onBlur={() => handlers.onHoverCitation?.(null)}
+            onClick={() => citation && handlers.onViewCitation?.(citation)}
+            className={`mx-0.5 rounded bg-gold/20 px-1 font-medium text-gold ${
+              citation ? 'cursor-pointer hover:bg-gold/30' : ''
+            }`}
+          >
+            {part}
+          </button>
         </sup>,
       )
       return
@@ -44,7 +58,10 @@ function renderInline(text: string, handlers: CitationHandlers, keyPrefix: strin
       const boldMatch = seg.match(/^\*\*([^*]+)\*\*$/)
       if (boldMatch) {
         nodes.push(
-          <strong key={`${keyPrefix}-b${i}-${j}`} className="font-semibold text-gray-50">
+          <strong
+            key={`${keyPrefix}-b${i}-${j}`}
+            className="font-semibold text-gray-50"
+          >
             {boldMatch[1]}
           </strong>,
         )
@@ -60,11 +77,14 @@ function renderInline(text: string, handlers: CitationHandlers, keyPrefix: strin
 // Renders LLM-generated markdown-lite (headers, **bold**, -/* bullets,
 // 1. numbered lists, > blockquotes, --- rules, paragraphs) as real
 // elements instead of dumping the literal characters as plain text — every
-// agent in this app (Advisory Panel, Debate Agents, Research Agent,
+// agent in this app (Advisory Panel, Research Agent,
 // Supervisor, Document Assistant) prompts the model in prose but the
 // model naturally reaches for this formatting, and it was previously
 // showing up as literal "**" / "#" in the UI.
-export function renderRichText(text: string, handlers: CitationHandlers = {}): ReactNode {
+export function renderRichText(
+  text: string,
+  handlers: CitationHandlers = {},
+): ReactNode {
   const lines = text.split('\n')
   const blocks: ReactNode[] = []
   let paragraphLines: string[] = []
@@ -95,7 +115,9 @@ export function renderRichText(text: string, handlers: CitationHandlers = {}): R
           className={`space-y-1 pl-5 ${listType === 'ul' ? 'list-disc' : 'list-decimal'}`}
         >
           {listItems.map((item, i) => (
-            <li key={i}>{renderInline(item, handlers, `li${blockIndex}-${i}`)}</li>
+            <li key={i}>
+              {renderInline(item, handlers, `li${blockIndex}-${i}`)}
+            </li>
           ))}
         </Tag>,
       )
@@ -124,14 +146,19 @@ export function renderRichText(text: string, handlers: CitationHandlers = {}): R
     if (isRule) {
       flushParagraph()
       flushList()
-      blocks.push(<hr key={`hr-${blockIndex++}`} className="border-panel-border" />)
+      blocks.push(
+        <hr key={`hr-${blockIndex++}`} className="border-panel-border" />,
+      )
     } else if (h3 || h2 || h1) {
       flushParagraph()
       flushList()
       const heading = (h3 || h2 || h1)!
       const size = h3 ? 'text-xs' : h2 ? 'text-sm' : 'text-[15px]'
       blocks.push(
-        <p key={`h-${blockIndex++}`} className={`${size} font-semibold text-gray-100`}>
+        <p
+          key={`h-${blockIndex++}`}
+          className={`${size} font-semibold text-gray-100`}
+        >
           {renderInline(heading[1], handlers, `h${blockIndex}`)}
         </p>,
       )
@@ -149,7 +176,10 @@ export function renderRichText(text: string, handlers: CitationHandlers = {}): R
       flushParagraph()
       flushList()
       blocks.push(
-        <blockquote key={`q-${blockIndex++}`} className="border-l-2 border-gold/40 pl-3 italic text-gray-400">
+        <blockquote
+          key={`q-${blockIndex++}`}
+          className="border-l-2 border-gold/40 pl-3 italic text-gray-400"
+        >
           {renderInline(quote[1], handlers, `q${blockIndex}`)}
         </blockquote>,
       )
@@ -168,7 +198,10 @@ export function renderRichText(text: string, handlers: CitationHandlers = {}): R
 // unsupported styling instead of parsing block structure — the answer is
 // already complete at this point, so per-sentence trust signal matters
 // more than re-deriving headers/lists.
-export function renderAuditedRichText(sentences: SentenceVerdict[], handlers: CitationHandlers = {}): ReactNode {
+export function renderAuditedRichText(
+  sentences: SentenceVerdict[],
+  handlers: CitationHandlers = {},
+): ReactNode {
   return (
     <p className="leading-relaxed">
       {sentences.map((s, i) => (
@@ -176,7 +209,9 @@ export function renderAuditedRichText(sentences: SentenceVerdict[], handlers: Ci
           key={i}
           title={s.reason}
           className={
-            s.supported ? '' : 'rounded bg-red-500/10 underline decoration-red-400 decoration-2 underline-offset-2'
+            s.supported
+              ? ''
+              : 'rounded bg-red-500/10 underline decoration-red-400 decoration-2 underline-offset-2'
           }
         >
           {renderInline(s.text + ' ', handlers, `audit${i}`)}

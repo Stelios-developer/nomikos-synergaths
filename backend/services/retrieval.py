@@ -1,5 +1,5 @@
 """
-Hybrid retrieval: vector similarity (ChromaDB) + keyword search (BM25),
+Hybrid retrieval: vector similarity (PostgreSQL/pgvector) + keyword search (BM25),
 merged with Reciprocal Rank Fusion.
 
 Step 5 shipped vector_search only. Step 9 adds keyword_search and
@@ -7,7 +7,7 @@ hybrid_search on top without changing vector_search's behavior, so
 callers written against step 5 (query.py) keep working — they're
 switched over to hybrid_search explicitly.
 
-BM25 has no persistent index: the corpus is pulled fresh from ChromaDB
+BM25 has no persistent index: the corpus is pulled fresh from PostgreSQL/pgvector
 and re-tokenized on every call. Fine at the scale a portfolio project's
 document collection will realistically hit; a real production system
 would cache/rebuild the BM25 index on ingestion instead.
@@ -15,7 +15,7 @@ would cache/rebuild the BM25 index on ingestion instead.
 Every search function is scoped by session_id (services/session_scope.py)
 so one visitor's retrieval can never surface another visitor's uploaded
 chunks — both the vector query AND the BM25 corpus pull apply the same
-where-filter, since BM25 rebuilds its corpus straight from ChromaDB on
+where-filter, since BM25 rebuilds its corpus straight from PostgreSQL/pgvector on
 every call and would otherwise leak cross-session content through the
 keyword-search half even if the vector half were filtered correctly.
 """
@@ -24,9 +24,10 @@ import re
 
 from rank_bm25 import BM25Okapi
 
-from db.chroma_client import get_collection
+from db.vector_store import get_collection
 from services.embeddings import embed_text
-from services.session_scope import DEFAULT_SESSION_ID, where_clause
+from services.session_scope import DEFAULT_SESSION_ID
+from services.workspace_lock import scoped_operation
 
 DEFAULT_N_RESULTS = int(os.getenv("MAX_CHUNKS_PER_QUERY", 5))
 RRF_K = 60
@@ -56,7 +57,7 @@ def vector_search(
     results = collection.query(
         query_embeddings=[query_embedding],
         n_results=n_results,
-        where=where_clause(session_id, document_filter),
+        workspace_id=session_id, filename=document_filter,
     )
 
     chunks = []
@@ -85,7 +86,7 @@ def keyword_search(
     [{"text", "filename", "page_number", "chunk_index", "score"}]
     """
     collection = get_collection()
-    corpus = collection.get(where=where_clause(session_id, document_filter), include=["documents", "metadatas"])
+    corpus = collection.get(workspace_id=session_id, filename=document_filter, include=["documents", "metadatas"])
 
     docs = corpus["documents"]
     metas = corpus["metadatas"]
@@ -138,6 +139,7 @@ def reciprocal_rank_fusion(
     ]
 
 
+@scoped_operation
 def hybrid_search(
     question: str,
     document_filter: str | None = None,

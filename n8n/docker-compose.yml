@@ -1,0 +1,50 @@
+services:
+  n8n:
+    # Pinned to the verified n8n 2.42.7 image. Update deliberately
+    # after release notes, backup, and workflow smoke tests.
+    image: n8nio/n8n:2.42.7@sha256:906dd7fb0a2f23869001d1767168359489c518ff34d4f67427abf2dc59e868fe
+    container_name: document-rag-n8n
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5678:5678"
+    environment:
+      - TZ=Europe/Athens
+      - GENERIC_TIMEZONE=Europe/Athens
+      # This is intentionally localhost-only for the first setup. If n8n is
+      # later hosted publicly, configure a real HTTPS hostname and WEBHOOK_URL.
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - N8N_SECURE_COOKIE=false
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=true
+      - N8N_DIAGNOSTICS_ENABLED=false
+      - N8N_PERSONALIZATION_ENABLED=false
+      # Documents Made Clear uses built-in nodes and the editor, not the public management
+      # API, remote templates, or third-party executable community packages.
+      - N8N_COMMUNITY_PACKAGES_ENABLED=false
+      - N8N_PUBLIC_API_DISABLED=true
+      - N8N_TEMPLATES_ENABLED=false
+      # Workflow payloads contain workspace identifiers and an integration
+      # header. Do not retain successful, failed, progress, or manual payloads.
+      - EXECUTIONS_DATA_SAVE_ON_SUCCESS=none
+      - EXECUTIONS_DATA_SAVE_ON_ERROR=none
+      - EXECUTIONS_DATA_SAVE_ON_PROGRESS=false
+      - EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS=false
+      - EXECUTIONS_DATA_PRUNE=true
+      - EXECUTIONS_DATA_MAX_AGE=24
+      - EXECUTIONS_DATA_PRUNE_MAX_COUNT=1000
+      # n8n writes in-flight state and soft-deletes it on completion. Keep
+      # physical deletion frequent, without retaining a recovery buffer.
+      - EXECUTIONS_DATA_HARD_DELETE_BUFFER=0
+      - EXECUTIONS_DATA_PRUNE_HARD_DELETE_INTERVAL=1
+      - EXECUTIONS_DATA_PRUNE_SOFT_DELETE_INTERVAL=1
+      # FORGE uses a server-side shared secret. It stays in .env and is never
+      # stored in a workflow node or exposed to the browser.
+      - N8N_WEBHOOK_API_KEY=${N8N_WEBHOOK_API_KEY}
+      - FORGE_API_URL=http://host.docker.internal:5185
+    volumes:
+      - n8n_data:/home/node/.n8n
+
+volumes:
+  n8n_data:

@@ -52,7 +52,12 @@ def _extract_verdict_list(response: str, expected_length: int) -> list[dict] | N
     if not isinstance(parsed, list) or len(parsed) != expected_length:
         return None
     for item in parsed:
-        if not isinstance(item, dict) or not isinstance(item.get("supported"), bool):
+        if (
+            not isinstance(item, dict)
+            or not isinstance(item.get("supported"), bool)
+            or not isinstance(item.get("reason"), str)
+            or not item["reason"].strip()
+        ):
             return None
     return parsed
 
@@ -64,11 +69,8 @@ def audit_answer(answer: str, chunks: list[dict]) -> list[dict]:
     [{"text": str, "supported": bool, "reason": str}, ...], one entry per
     sentence, same order as they appear in `answer`.
 
-    Graceful fallback: if the grading response doesn't parse (wrong
-    shape, wrong length, not JSON), every sentence is marked supported
-    with a reason explaining verification failed — never silently drops
-    or reorders sentences, and never claims something is unsupported
-    without an actual successful grading pass.
+    Fail closed: an unavailable or malformed grading response is explicitly
+    unverifiable. It must never be presented as a supported claim.
     """
     sentences = _split_sentences(answer)
     if not sentences:
@@ -76,7 +78,7 @@ def audit_answer(answer: str, chunks: list[dict]) -> list[dict]:
 
     if not chunks:
         return [
-            {"text": s, "supported": False, "reason": "Δεν υπήρχαν αποσπάσματα εγγράφων για επαλήθευση."}
+            {"text": s, "supported": False, "reason": "Δεν υπήρχαν αποσπάσματα εγγράφων για επαλήθευση.", "verification_unavailable": True}
             for s in sentences
         ]
 
@@ -91,12 +93,15 @@ def audit_answer(answer: str, chunks: list[dict]) -> list[dict]:
         f"Απάντα ΜΟΝΟ με μία JSON λίστα με ΑΚΡΙΒΩΣ {len(sentences)} στοιχεία, στην ίδια σειρά με "
         'τις προτάσεις, της μορφής [{"supported": true, "reason": "σύντομη αιτιολόγηση"}, ...].'
     )
-    response = complete(prompt, max_tokens=800)
-    parsed = _extract_verdict_list(response, expected_length=len(sentences))
+    try:
+        response = complete(prompt, max_tokens=800)
+        parsed = _extract_verdict_list(response, expected_length=len(sentences))
+    except Exception:
+        parsed = None
 
     if parsed is None:
         return [
-            {"text": s, "supported": True, "reason": "Δεν ήταν δυνατή η αυτόματη επαλήθευση."}
+            {"text": s, "supported": False, "reason": "Δεν ήταν δυνατή η αυτόματη επαλήθευση.", "verification_unavailable": True}
             for s in sentences
         ]
 

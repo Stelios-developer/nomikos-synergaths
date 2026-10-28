@@ -2,24 +2,13 @@ import json
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from contracts import ConversationRequest as ResearchRequest
 
 from services.multihop import run_research_stream
 from services.security import limiter, RATE_LIMIT_RESEARCH
 from services.session_scope import get_session_id
 
 router = APIRouter()
-
-
-class HistoryTurn(BaseModel):
-    role: str  # "user" | "assistant"
-    content: str
-
-
-class ResearchRequest(BaseModel):
-    question: str
-    document_filter: str | None = None
-    history: list[HistoryTurn] | None = None
 
 
 def _sse(event_type: str, payload: dict) -> str:

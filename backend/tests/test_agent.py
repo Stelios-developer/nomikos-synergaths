@@ -17,15 +17,10 @@ def test_run_agent_succeeds_immediately_without_rephrasing():
 
 
 def test_run_agent_rephrases_once_then_succeeds():
-    call_count = {"n": 0}
+    chunk = {"text": "x", "filename": "a.pdf", "page_number": 1, "chunk_index": 0}
 
-    def fake_grade_chunks(question, chunks):
-        call_count["n"] += 1
-        return [call_count["n"] > 1]  # nothing relevant on 1st evaluate, relevant on 2nd
-
-    with patch.object(agent, "hybrid_search", return_value=[
-            {"text": "x", "filename": "a.pdf", "page_number": 1, "chunk_index": 0}]), \
-         patch.object(agent, "_grade_chunks", side_effect=fake_grade_chunks), \
+    with patch.object(agent, "hybrid_search", side_effect=[[], [chunk]]), \
+         patch.object(agent, "_grade_chunks", return_value=[True]), \
          patch.object(agent, "complete", return_value="better query"), \
          patch.object(agent, "generate_answer", return_value="ANSWER2"):
         result = agent.run_agent("what is x?")
@@ -48,15 +43,10 @@ def test_run_agent_stops_at_max_iterations():
 
 
 def test_agentic_retrieve_mirrors_graph_retry_behavior():
-    call_count = {"n": 0}
+    chunk = {"text": "x", "filename": "a.pdf", "page_number": 1, "chunk_index": 0}
 
-    def fake_grade_chunks(question, chunks):
-        call_count["n"] += 1
-        return [call_count["n"] > 1]
-
-    with patch.object(agent, "hybrid_search", return_value=[
-            {"text": "x", "filename": "a.pdf", "page_number": 1, "chunk_index": 0}]), \
-         patch.object(agent, "_grade_chunks", side_effect=fake_grade_chunks), \
+    with patch.object(agent, "hybrid_search", side_effect=[[], [chunk]]), \
+         patch.object(agent, "_grade_chunks", return_value=[True]), \
          patch.object(agent, "complete", return_value="condensed query"):
         final_query, chunks, iterations = agent.agentic_retrieve("what is x?")
 
@@ -162,17 +152,17 @@ def test_evaluate_filters_out_chunks_graded_irrelevant():
     assert result["should_retry"] is False
 
 
-def test_evaluate_retries_when_no_chunks_graded_relevant():
+def test_evaluate_keeps_ranked_evidence_when_grader_rejects_every_chunk():
     chunks = [{"text": "off topic", "filename": "a.pdf", "page_number": 1, "chunk_index": 0}]
 
     with patch.object(agent, "hybrid_search", return_value=chunks), \
          patch.object(agent, "_grade_chunks", return_value=[False]), \
-         patch.object(agent, "complete", return_value="rephrased query"), \
-         patch.object(agent, "generate_answer", return_value="ANSWER"):
+         patch.object(agent, "generate_answer", return_value="ANSWER") as mock_generate:
         result = agent.run_agent("what is x?")
 
-    # nothing ever graded relevant across MAX_ITERATIONS retries -> gives up
-    assert result["iteration"] == agent.MAX_ITERATIONS
+    assert result["iteration"] == 0
+    assert result["chunks"] == chunks
+    mock_generate.assert_called_once_with("what is x?", chunks, [])
 
 
 def test_grade_chunks_parses_json_bool_list_from_llm_response():

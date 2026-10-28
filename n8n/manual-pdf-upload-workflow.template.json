@@ -1,0 +1,470 @@
+{
+  "id": "manualPdfUploadAnalysis",
+  "name": "Manual PDF Upload & Case Intelligence",
+  "description": "Secure evidence-grounded document intelligence workflow. n8n uploads the PDF, then the backend owns the case state and every agent advances it using a server-side case ID.",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Document intelligence analysis",
+        "formDescription": "Upload one PDF to extract its profile, obligations, deadlines, risks, and a verified action pack.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "pdf",
+              "fieldType": "file",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c4efba04-7453-4fea-a0f2-5ac6d14b46a0",
+      "name": "Manual PDF upload",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2,
+      "position": [
+        260,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/integrations/n8n/documents",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-API-Key",
+              "value": "={{ $env.N8N_WEBHOOK_API_KEY }}"
+            },
+            {
+              "name": "X-Workspace-ID",
+              "value": "local-demo"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "pdf"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7bd5485d-7145-4d3a-bbbd-14d282215331",
+      "name": "Store PDF in RAG",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/integrations/n8n/cases/start",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-API-Key",
+              "value": "={{ $env.N8N_WEBHOOK_API_KEY }}"
+            },
+            {
+              "name": "X-Workspace-ID",
+              "value": "={{ $('Store PDF in RAG').item.json.workspace_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ JSON.stringify({ filename: $('Store PDF in RAG').item.json.filename }) }}",
+        "options": {}
+      },
+      "id": "24e9472f-b45d-4c3e-8c09-6b69ad1395d6",
+      "name": "Start document case",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        790,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/integrations/n8n/cases/document-dna",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-API-Key",
+              "value": "={{ $env.N8N_WEBHOOK_API_KEY }}"
+            },
+            {
+              "name": "X-Workspace-ID",
+              "value": "={{ $('Store PDF in RAG').item.json.workspace_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ JSON.stringify({ case_id: $json.case_id }) }}",
+        "options": {}
+      },
+      "id": "dd82eed9-3c9d-41fc-91a6-bda5cda4bcff",
+      "name": "Document DNA & Quality Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1060,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/integrations/n8n/cases/facts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-API-Key",
+              "value": "={{ $env.N8N_WEBHOOK_API_KEY }}"
+            },
+            {
+              "name": "X-Workspace-ID",
+              "value": "={{ $('Store PDF in RAG').item.json.workspace_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ JSON.stringify({ case_id: $json.case_id }) }}",
+        "options": {}
+      },
+      "id": "f4c0fdb0-60b6-4c69-8827-d74219a073bc",
+      "name": "Facts, Obligations & Deadlines Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1360,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/integrations/n8n/cases/risks",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-API-Key",
+              "value": "={{ $env.N8N_WEBHOOK_API_KEY }}"
+            },
+            {
+              "name": "X-Workspace-ID",
+              "value": "={{ $('Store PDF in RAG').item.json.workspace_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ JSON.stringify({ case_id: $json.case_id }) }}",
+        "options": {}
+      },
+      "id": "2e41356e-5b20-4637-ae98-0c1628d0d7a2",
+      "name": "Risk Prioritisation Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/integrations/n8n/cases/draft-action-pack",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-API-Key",
+              "value": "={{ $env.N8N_WEBHOOK_API_KEY }}"
+            },
+            {
+              "name": "X-Workspace-ID",
+              "value": "={{ $('Store PDF in RAG').item.json.workspace_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ JSON.stringify({ case_id: $json.case_id }) }}",
+        "options": {}
+      },
+      "id": "e7d33b1b-a0f0-4f8f-a20e-4512701c75be",
+      "name": "Decision Brief & Action Pack Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2010,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/integrations/n8n/cases/audit",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-API-Key",
+              "value": "={{ $env.N8N_WEBHOOK_API_KEY }}"
+            },
+            {
+              "name": "X-Workspace-ID",
+              "value": "={{ $('Store PDF in RAG').item.json.workspace_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ JSON.stringify({ case_id: $json.case_id }) }}",
+        "options": {}
+      },
+      "id": "ced1f696-1ea6-4e47-b6c6-62228c997b4e",
+      "name": "Mandatory Hallucination Auditor",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2330,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d62fecbc-9d56-4afb-904c-75c01b34d62b",
+              "leftValue": "={{ $json.audit.passed }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "25e35128-3956-43c9-9142-60ce5d4ae34f",
+      "name": "IF Evidence Quality Gate",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2630,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/integrations/n8n/cases/finalize",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-API-Key",
+              "value": "={{ $env.N8N_WEBHOOK_API_KEY }}"
+            },
+            {
+              "name": "X-Workspace-ID",
+              "value": "={{ $('Store PDF in RAG').item.json.workspace_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ JSON.stringify({ case_id: $json.case_id }) }}",
+        "options": {}
+      },
+      "id": "4ad8be43-4d90-4e49-89d8-1916e58e0bc0",
+      "name": "Finalize verified action pack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2910,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/integrations/n8n/cases/finalize",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-API-Key",
+              "value": "={{ $env.N8N_WEBHOOK_API_KEY }}"
+            },
+            {
+              "name": "X-Workspace-ID",
+              "value": "={{ $('Store PDF in RAG').item.json.workspace_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ JSON.stringify({ case_id: $json.case_id }) }}",
+        "options": {}
+      },
+      "id": "c73735c0-a852-4fa0-999f-a7e1ed08015a",
+      "name": "Finalize human-review pack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2910,
+        430
+      ]
+    }
+  ],
+  "connections": {
+    "Manual PDF upload": {
+      "main": [
+        [
+          {
+            "node": "Store PDF in RAG",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store PDF in RAG": {
+      "main": [
+        [
+          {
+            "node": "Start document case",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start document case": {
+      "main": [
+        [
+          {
+            "node": "Document DNA & Quality Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Document DNA & Quality Agent": {
+      "main": [
+        [
+          {
+            "node": "Facts, Obligations & Deadlines Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Facts, Obligations & Deadlines Agent": {
+      "main": [
+        [
+          {
+            "node": "Risk Prioritisation Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Risk Prioritisation Agent": {
+      "main": [
+        [
+          {
+            "node": "Decision Brief & Action Pack Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decision Brief & Action Pack Agent": {
+      "main": [
+        [
+          {
+            "node": "Mandatory Hallucination Auditor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mandatory Hallucination Auditor": {
+      "main": [
+        [
+          {
+            "node": "IF Evidence Quality Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Evidence Quality Gate": {
+      "main": [
+        [
+          {
+            "node": "Finalize verified action pack",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Finalize human-review pack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "none",
+    "saveManualExecutions": false,
+    "saveExecutionProgress": false
+  },
+  "active": false,
+  "pinData": {},
+  "versionId": "a798a09e-b65e-4fc3-b4d4-50ad4ecb3c5c"
+}

@@ -1,0 +1,11 @@
+# Keep source files portable and normalize Windows line endings in the index.
+* text=auto eol=lf
+
+# Binary assets must never undergo text conversion.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary

@@ -1,0 +1,15 @@
+{
+  "name": "documents-made-clear-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.20.0" },
+  "scripts": {
+    "check": "node scripts/repository.mjs check",
+    "test": "node scripts/repository.mjs test",
+    "test:backend": "node scripts/repository.mjs backend",
+    "test:integration": "node scripts/repository.mjs integration",
+    "test:ui": "node scripts/repository.mjs ui",
+    "audit:python": "node scripts/repository.mjs audit-python"
+  }
+}

@@ -107,6 +107,7 @@ def test_complete_uses_openai_by_default(monkeypatch):
 
     assert result == "hi there"  # stripped
     fake_client.chat.completions.create.assert_called_once_with(
+        timeout=120,
         model=llm.OPENAI_MODEL,
         messages=[{"role": "user", "content": "say hi"}],
         max_tokens=5,
@@ -124,6 +125,7 @@ def test_complete_uses_anthropic_when_provider_set(monkeypatch):
 
     assert result == "hi from claude"
     fake_client.messages.create.assert_called_once_with(
+        timeout=120,
         model=llm.ANTHROPIC_MODEL,
         max_tokens=5,
         messages=[{"role": "user", "content": "say hi"}],
@@ -139,6 +141,7 @@ def test_yes_no_and_score_follow_anthropic_provider(monkeypatch):
 
     assert llm.yes_no("does this suffice?") is True
     fake_client.messages.create.assert_called_with(
+        timeout=120,
         model=llm.ANTHROPIC_MODEL, max_tokens=5,
         messages=[{"role": "user", "content": "does this suffice?"}],
     )
