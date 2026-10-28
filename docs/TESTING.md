@@ -9,7 +9,7 @@ boundaries are documented in [FRONTEND_DESIGN.md](FRONTEND_DESIGN.md).
 4. Use the Research Agent for a compound question and confirm it shows sub-questions.
 5. Run Expert Review only for a high-impact decision and inspect the moderator summary.
 6. Use the Hallucination Auditor to check an answer's supporting evidence.
-7. Upload a PDF through the application and confirm that **Documents Made Clear · Agent
+7. Upload a PDF through the application and confirm that **NOMIKOS SYNERGATHS · Agent
    Orchestrator** runs the sequential case stages. Verify the final app result
    is either the verified pack or the human-review pack. Completed execution
    payloads are intentionally not retained in n8n; do not enable history just
@@ -70,8 +70,8 @@ benchmark. Current results and limitations: [validation](engineering/VALIDATION.
 Separate image checks are available after building the candidate tags:
 
 ```powershell
-backend/.venv/Scripts/python.exe scripts/integration_pdf_image.py
-backend/.venv/Scripts/python.exe scripts/integration_auth_image.py
+backend/.venv/Scripts/python.exe scripts/integration/integration_pdf_image.py
+backend/.venv/Scripts/python.exe scripts/integration/integration_auth_image.py
 ```
 
 These run synthetic input with no network or host volumes and a read-only

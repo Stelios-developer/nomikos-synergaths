@@ -1,6 +1,6 @@
 # Architecture
 
-Documents Made Clear is a document-intelligence workspace. Its architecture keeps the user-facing browser, secure backend, document store and workflow orchestration separate.
+NOMIKOS SYNERGATHS is a document-intelligence workspace. Its architecture keeps the user-facing browser, secure backend, document store and workflow orchestration separate.
 
 ## Repository layout
 

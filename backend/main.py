@@ -74,7 +74,7 @@ async def lifespan(app: FastAPI):
         from db.vector_store import close_vector_store
         close_vector_store()
 
-app = FastAPI(title="Documents Made Clear API", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
+app = FastAPI(title="NOMIKOS SYNERGATHS API", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
 install_problem_handlers(app)
 
 

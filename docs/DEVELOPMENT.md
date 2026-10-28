@@ -28,7 +28,7 @@ set the matching runtime-only `VECTOR_DATABASE_URL` in `backend/.env`, then:
 
 ```powershell
 docker compose -f infra/vector/compose.yml --env-file infra/vector/.env up -d --wait
-backend/.venv/Scripts/python.exe scripts/setup_vector_database.py
+backend/.venv/Scripts/python.exe scripts/database/setup_vector_database.py
 npm run test:integration
 ```
 
@@ -68,7 +68,7 @@ npm run start
 ## Validate before a pull request
 
 After installing auth-service dependencies and starting the dedicated DMC vector
-fixture, `python scripts/integration_auth_sessions.py` creates/drops a uniquely
+fixture, `python scripts/database/integration_auth_sessions.py` creates/drops a uniquely
 named temporary database to check real Better Auth signed cookies and backend
 revocation. It uses synthetic accounts, no email/provider calls, and never
 targets the active auth database. CI runs this alongside the SQL integration.
@@ -100,7 +100,7 @@ git status
 ## Generate the sample test document
 
 ```powershell
-python scripts\generate_nexus_test_case.py
+python scripts\examples\generate_nexus_test_case.py
 ```
 
 Upload `examples/test-documents/nexus-tax-compliance-test-case.pdf` to exercise the full document workflow, including Timeline and Decision center.

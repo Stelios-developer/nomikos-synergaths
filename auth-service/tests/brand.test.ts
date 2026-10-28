@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
-test('account emails and auth identity use Documents Made Clear without changing session cookies', () => {
+test('account emails and auth identity use NOMIKOS SYNERGATHS without changing session cookies', () => {
   const script = `
     import assert from 'node:assert/strict';
     const sent = [];
@@ -13,18 +13,18 @@ test('account emails and auth identity use Documents Made Clear without changing
     };
     const { auth, pool } = await import('./src/auth.ts');
     try {
-      assert.equal(auth.options.appName, 'Documents Made Clear');
+      assert.equal(auth.options.appName, 'NOMIKOS SYNERGATHS');
       assert.equal(auth.options.advanced.cookiePrefix, 'nexus');
       const input = { user: { email: 'member@example.test' }, url: 'https://app.example.test/reset' };
       await auth.options.emailAndPassword.sendResetPassword(input);
       await auth.options.emailVerification.sendVerificationEmail(input);
       assert.deepEqual(sent.map(email => email.subject), [
-        'Reset your Documents Made Clear password',
-        'Verify your Documents Made Clear email',
+        'Reset your NOMIKOS SYNERGATHS password',
+        'Verify your NOMIKOS SYNERGATHS email',
       ]);
       for (const email of sent) {
-        assert.equal(email.from, 'Documents Made Clear <test@example.test>');
-        assert.match(email.html, /Documents Made Clear/);
+        assert.equal(email.from, 'NOMIKOS SYNERGATHS <test@example.test>');
+        assert.match(email.html, /NOMIKOS SYNERGATHS/);
       }
       console.log('BRAND_OK');
     } finally {

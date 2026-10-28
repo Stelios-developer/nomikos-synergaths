@@ -43,7 +43,7 @@ if (command === 'check') {
 } else if (command === 'audit-python') {
   run(python, ['scripts/security/audit_python.py', '--allow-osv'])
 } else if (command === 'integration') {
-  run(python, ['scripts/integration_vectors.py'])
+  run(python, ['scripts/database/integration_vectors.py'])
 } else {
   throw new Error('Expected check, test, backend, ui or audit-python.')
 }

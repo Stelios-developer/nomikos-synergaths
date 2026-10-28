@@ -1,17 +1,17 @@
 {
   "id": "nexusAgentOrchestrator",
-  "name": "Documents Made Clear · Agent Orchestrator",
+  "name": "NOMIKOS SYNERGATHS · Agent Orchestrator",
   "description": "The real evidence-first document intelligence orchestration. The application triggers the case webhook, n8n invokes every stage through authenticated backend endpoints, and specialist agents remain visible as secure on-demand branches.",
   "nodes": [
     {
       "parameters": {
-        "content": "# Documents Made Clear · AGENT ORCHESTRATOR\n### Evidence-first automation · visible, traceable, fail-closed\n\nEvery functional node below calls a real FastAPI endpoint. The application forwards its server-side integration header through n8n; the backend validates it before any agent runs. Complete case evidence remains in the backend.",
+        "content": "# NOMIKOS SYNERGATHS · AGENT ORCHESTRATOR\n### Evidence-first automation · visible, traceable, fail-closed\n\nEvery functional node below calls a real FastAPI endpoint. The application forwards its server-side integration header through n8n; the backend validates it before any agent runs. Complete case evidence remains in the backend.",
         "height": 180,
         "width": 3430,
         "color": 7
       },
       "id": "0c1571ee-cde3-4d76-9bb2-0e7d1f9ad001",
-      "name": "Documents Made Clear · Agent Orchestrator",
+      "name": "NOMIKOS SYNERGATHS · Agent Orchestrator",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [

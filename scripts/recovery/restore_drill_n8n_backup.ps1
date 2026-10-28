@@ -7,7 +7,7 @@ $ErrorActionPreference = 'Stop'
 $backup = [IO.File]::ReadAllBytes((Resolve-Path -LiteralPath $BackupPath).Path)
 if ($backup.Length -lt 37 -or $backup.Length -gt 512MB -or
     [Text.Encoding]::ASCII.GetString($backup, 0, 8) -ne 'NEXUSBK1') {
-    throw 'Invalid or oversized Documents Made Clear backup.'
+    throw 'Invalid or oversized NOMIKOS SYNERGATHS backup.'
 }
 $context = [Text.Encoding]::UTF8.GetBytes('NEXUS n8n local volume backup v1')
 $key = [Security.Cryptography.ProtectedData]::Unprotect(

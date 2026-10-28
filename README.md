@@ -1,158 +1,88 @@
-# Documents Made Clear
+<p align="center"><img src="docs/banner.svg" width="100%" alt="NOMIKOS SYNERGATHS — evidence-first document intelligence" /></p>
 
-> Account setup and production security: see [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md).
->
-> Repository guide: [architecture](docs/ARCHITECTURE.md), [development workflow](docs/DEVELOPMENT.md) and [contribution rules](CONTRIBUTING.md).
->
-> Engineering evidence: [comparison and transferred patterns](docs/engineering/PADEL_COMPARATIVE_AUDIT.md),
-> [validation](docs/engineering/VALIDATION.md), [API contracts](docs/API_CONTRACTS.md)
-> and [remaining acceptance gates](docs/engineering/ROADMAP.md).
+<p align="center"><strong>Understand the document. Trace the evidence. Keep people in control.</strong><br />PDF analysis · facts and deadlines · risk review · cited answers</p>
 
-An application for analysing PDF documents with grounded answers and page-level citations. It is designed for compliance, operational, and business documents.
+<p align="center"><a href="#the-product">Product</a> · <a href="#architecture">Architecture</a> · <a href="#run-locally">Run locally</a> · <a href="#verification-and-release-status">Verification</a> · <a href="docs/README.el.md">Ελληνικά</a></p>
 
-## Product flow
+<p align="center">
+<img alt="Python" src="https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white" />
+<img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-API-009688?style=flat-square&logo=fastapi&logoColor=white" />
+<img alt="React and TypeScript" src="https://img.shields.io/badge/React-TypeScript-3178C6?style=flat-square&logo=react&logoColor=white" />
+<img alt="PostgreSQL and pgvector" src="https://img.shields.io/badge/PostgreSQL-pgvector-4169E1?style=flat-square&logo=postgresql&logoColor=white" />
+<img alt="MIT license" src="https://img.shields.io/badge/License-MIT-80DDBD?style=flat-square" />
+</p>
+
+> **Release status:** Development project; not approved for production or real customer documents. AI output can be wrong and must be reviewed against the source. [Security release gate](docs/SECURITY_RELEASE_GATE.md) · [Remaining work](docs/engineering/ROADMAP.md)
+
+## The product
+
+NOMIKOS SYNERGATHS helps a user explore an uploaded PDF, identify facts, obligations, deadlines and risks, and follow citations back to the source. A document becomes an evidence-linked case rather than a detached summary.
+
+- **Overview and document library:** keep the current case and indexed documents together.
+- **Facts, deadlines and timeline:** explore extracted obligations and dates.
+- **Risks, action plan and decision center:** review proposed next steps and supporting evidence.
+- **Ask and evidence:** investigate the source with page-level citations and human review.
+- **Background activity:** inspect persisted progress, uncertain results and safe cancellation.
+
+This is an investigative aid, not a substitute for legal advice or professional judgment. Availability and quality depend on document extraction, the configured AI provider and workflow state.
+
+## What to inspect in the code
+
+| Engineering concern | Approach | Start here |
+| --- | --- | --- |
+| Workspace isolation | PostgreSQL/pgvector with restricted roles and row-level security | [Vector store](backend/db/vector_store.py) · [storage evidence](docs/engineering/SECURE_STORAGE.md) |
+| Unsafe uploads | Isolated PDF worker, scanning and visual reconstruction; deployment remains a release gate | [PDF worker](security/pdf_worker/README.md) |
+| Lost responses and duplicate work | Persisted jobs, stage claims and explicit uncertain-result reconciliation | [Durable analysis](docs/engineering/DURABLE_ANALYSIS.md) |
+| Unreliable citations | Source-bound evidence and fail-closed audit paths | [Auditor](backend/services/auditor.py) · [release gate](docs/SECURITY_RELEASE_GATE.md) |
+| Identity and sessions | Better Auth and authenticated workspace scope | [Authentication](docs/AUTHENTICATION.md) |
+| Recovery | Local encrypted backups and isolated restore drills; offsite recovery is pending | [Retention and recovery](docs/DATA_RETENTION_AND_RECOVERY.md) |
+
+## Architecture
 
 ```mermaid
 flowchart LR
-  A[Upload PDF] --> B[Extract text or OCR]
-  B --> C[Workspace-scoped RAG knowledge base]
-  C --> D[Supervisor]
-  D --> E[Document Assistant]
-  D --> F[Research Agent]
-  D --> G[Expert Review]
-  E --> H[Answer with citations]
-  F --> H
-  G --> H
+  User[Browser] --> UI[React and TypeScript]
+  UI --> Auth[Better Auth]
+  UI --> API[FastAPI]
+  API --> PDF[Isolated PDF safety worker]
+  API --> DB[(PostgreSQL and pgvector)]
+  API --> Case[(Case and source storage)]
+  API --> N8N[n8n orchestration]
+  N8N --> API
+  API --> Model[Configured AI provider]
 ```
 
-The product has four focused roles:
+The application submits a document workflow through n8n, persists case stages and checks evidence before presenting results. Relevant excerpts may be sent to the configured AI provider. [Architecture](docs/ARCHITECTURE.md) · [API contracts](docs/API_CONTRACTS.md) · [Project layout](docs/PROJECT_LAYOUT.md)
 
-- **Document Assistant** — answers questions from uploaded PDFs with page citations.
-- **Supervisor** — routes a request through the shared document knowledge and produces a grounded final answer.
-- **Research Agent** — breaks complex questions into sub-questions and combines the evidence.
-- **Expert Review** — three independent risk/compliance perspectives with a moderated recommendation, for high-stakes decisions.
+## Technology
 
-The Hallucination Auditor is an internal quality check that verifies whether the answer is supported by its cited evidence.
+| Area | Technology | Purpose |
+| --- | --- | --- |
+| Interface | React, TypeScript, Vite | Document workspace and investigation |
+| API | Python, FastAPI | Authenticated APIs and document workflows |
+| Retrieval | PostgreSQL, pgvector, local embeddings | Workspace-scoped evidence retrieval |
+| Identity | Better Auth, PostgreSQL | Accounts and sessions |
+| Document safety | Separate PDF worker, ClamAV, OCR | Scan and reconstruct uploaded PDFs |
+| Orchestration | n8n | Visible agent and case workflow |
+| Quality | Local tests, CI definitions, security checks | Regression and release evidence |
 
-## Document Intelligence workflow
+## Run locally
 
-For a practical document-operations result, the application also provides a
-staged, evidence-first workflow for one uploaded PDF:
+Use Python 3.12, Node.js 22 and Docker with Compose. The full stack requires separate configuration for PostgreSQL, authentication, n8n and the PDF worker; there is no one-command production deployment. Follow the [development setup](docs/DEVELOPMENT.md), [authentication guide](docs/AUTHENTICATION.md), [n8n setup](n8n/README.md) and [PDF worker setup](security/pdf_worker/README.md). Keep secrets in ignored local environment files.
 
-```mermaid
-flowchart LR
-  A[Upload PDF] --> B[Store and index]
-  B --> C[Document DNA and Quality]
-  C --> D[Facts, Obligations and Deadlines]
-  D --> E[Risk Prioritisation]
-  E --> F[Decision Brief and Action Pack]
-  F --> G[Mandatory Evidence Audit]
-  G -->|Pass| H[Verified pack for human approval]
-  G -->|Needs review| I[Safe human-review pack]
+From the repository root, after installing the documented dependencies:
+
+```sh
+npm run check
+npm test
+npm run test:backend
+npm run test:integration
 ```
 
-Each workflow run creates a server-side, workspace-scoped case file. Facts,
-obligations, deadlines, risks, decisions and suggested actions must carry
-document citation IDs. The evidence audit fails closed: invalid or unsupported
-claims do not reach the actionable final pack. Suggested actions never create
-tasks, emails or reminders until a person explicitly approves them.
+The integration suite uses a disposable database and requires the documented local PostgreSQL fixture. Model generation requires a configured external provider; no provider charge is needed for the offline checks above.
 
-The browser application starts this workflow automatically after a PDF is
-uploaded. The guided interface reflects only the persisted case stages that
-n8n has actually completed; it doesn't simulate progress or require the user
-to change tabs.
+## Verification and release status
 
-## n8n Agent Orchestrator
+Local results and their exact scope are recorded in [validation](docs/engineering/VALIDATION.md). Earlier isolated checks cover backend regressions, PostgreSQL isolation, browser behavior, auth sessions and PDF processing; they are dated evidence, not a guarantee for a new deployment. The latest complete backend run in this Windows environment encountered a native scikit-learn DLL error during collection. Hosted CI success, signed release artifacts, production security configuration and offsite recovery remain unverified. GitHub Actions are subject to the account's usage budget.
 
-The live workflow definition is
-`n8n/agent-orchestrator.workflow.json`. It makes the complete operational path
-visible in n8n:
-
-`App document-ready webhook -> integration header check -> Start case -> Document DNA -> Facts, Obligations & Deadlines -> Risk Prioritisation -> Decision Brief & Action Pack -> Mandatory Hallucination Auditor -> Evidence Quality Gate -> Finalize`
-
-The lower section contains four separate, on-demand branches for the real
-Document Assistant, Supervisor, Research Agent, and Expert Review service.
-They are not run merely for presentation: each invokes its own secured backend
-endpoint and returns real evidence, routes, or advisor output.
-
-The application sends its server-side `X-N8N-API-Key` header to n8n and the
-workflow forwards it to the backend. The backend validates the key and the
-workspace on every agent endpoint, so the workflow stores no secret and does
-not need node-level access to environment variables. The legacy manual-form
-template remains as a reference only; use the application upload flow for the
-active, fully configured orchestration.
-
-Start n8n locally:
-
-```powershell
-cd n8n
-docker compose --env-file .env up -d
-```
-
-Then open `http://localhost:5678` and select **Documents Made Clear · Agent Orchestrator**.
-It must be published before the application can call its production webhook.
-
-## Local development
-
-From the repository root, after installing the frontend/auth dependencies and
-the backend virtualenv:
-
-Follow [first-time setup](docs/DEVELOPMENT.md) for hash-locked dependencies,
-dedicated PostgreSQL/pgvector role/migrations and the separate auth/PDF services.
-
-```powershell
-npm run check          # source boundaries, links, frontend lint/build, auth types
-npm test               # repository/security policy, frontend transport/state, auth
-npm run test:backend   # isolated backend tests, no live document store
-npm run test:integration # real SQL tests in a newly created disposable database
-```
-
-Browser, dependency-audit and operational commands are described in
-[testing](docs/TESTING.md) and [operations](docs/OPERATIONS.md). A passing build
-does not override the [security release gate](docs/SECURITY_RELEASE_GATE.md).
-
-Backend:
-
-```powershell
-cd backend
-python -m uvicorn main:app --reload --port 8000
-```
-
-Frontend:
-
-```powershell
-cd frontend
-npm install
-npm run dev
-```
-
-## Configuration
-
-Copy `backend/.env.example` to `backend/.env` and configure an LLM provider:
-
-```env
-ANTHROPIC_API_KEY=
-OPENAI_API_KEY=
-LLM_PROVIDER=anthropic
-N8N_WEBHOOK_API_KEY=
-N8N_ORCHESTRATOR_URL=http://localhost:5678/webhook/nexus-agent-orchestrator/case
-DOCUMENT_CASE_DB_PATH=./document_cases.db
-```
-
-Embeddings run locally. Anthropic/OpenAI credentials are needed only for generation and evaluation calls.
-
-## Tests
-
-```powershell
-cd backend
-pytest -q
-
-cd ../frontend
-npm run build
-```
-
-## Tech stack
-
-- FastAPI, LangGraph/LangChain, PostgreSQL/pgvector, BM25, PyMuPDF and isolated Tesseract OCR
-- React, TypeScript, Vite, Tailwind CSS
-- n8n for upload and delivery automations
+For any release, follow the [release runbook](docs/engineering/RELEASE_RUNBOOK.md). Report security issues privately as described in [SECURITY.md](SECURITY.md). Contributions are welcome under the [contribution guide](CONTRIBUTING.md); licensed under [MIT](LICENSE).

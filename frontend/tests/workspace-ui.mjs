@@ -23,7 +23,7 @@ const browser = await engines[engine].launch({
 let checks = 0
 let complete = false
 const startedAt = new Date().toISOString()
-const brand = 'Documents Made Clear'
+const brand = 'NOMIKOS SYNERGATHS'
 const check = (condition, label) => {
   assert.ok(condition, label)
   checks++

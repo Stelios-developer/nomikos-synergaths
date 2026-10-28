@@ -44,7 +44,7 @@ export const pool = new Pool({ connectionString: databaseUrl });
 async function sendEmail({ to, subject, html }: { to: string; subject: string; html: string }) {
   const apiKey = process.env.RESEND_API_KEY;
   // Update an old sender display name without touching its verified email address.
-  const from = process.env.EMAIL_FROM?.replace(/^\s*NEXUS\s*(?=<)/i, "Documents Made Clear ");
+  const from = process.env.EMAIL_FROM?.replace(/^\s*(?:NEXUS|Documents Made Clear)\s*(?=<)/i, "NOMIKOS SYNERGATHS ");
 
   if (!apiKey || !from) {
     if (isProduction) {
@@ -70,7 +70,7 @@ async function sendEmail({ to, subject, html }: { to: string; subject: string; h
 }
 
 export const auth = betterAuth({
-  appName: "Documents Made Clear",
+  appName: "NOMIKOS SYNERGATHS",
   database: pool,
   secret,
   baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:3001",
@@ -84,8 +84,8 @@ export const auth = betterAuth({
     sendResetPassword: async ({ user, url }) => {
       await sendEmail({
         to: user.email,
-        subject: "Reset your Documents Made Clear password",
-        html: `<p><strong>Documents Made Clear</strong></p><p>Use this secure link to reset your password:</p><p><a href="${url}">Reset password</a></p>`,
+        subject: "Reset your NOMIKOS SYNERGATHS password",
+        html: `<p><strong>NOMIKOS SYNERGATHS</strong></p><p>Use this secure link to reset your password:</p><p><a href="${url}">Reset password</a></p>`,
       });
     },
   },
@@ -94,8 +94,8 @@ export const auth = betterAuth({
     sendVerificationEmail: async ({ user, url }) => {
       await sendEmail({
         to: user.email,
-        subject: "Verify your Documents Made Clear email",
-        html: `<p><strong>Documents Made Clear</strong></p><p>Verify your email to activate your private document workspace:</p><p><a href="${url}">Verify email</a></p>`,
+        subject: "Verify your NOMIKOS SYNERGATHS email",
+        html: `<p><strong>NOMIKOS SYNERGATHS</strong></p><p>Verify your email to activate your private document workspace:</p><p><a href="${url}">Verify email</a></p>`,
       });
     },
   },

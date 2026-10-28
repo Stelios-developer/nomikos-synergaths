@@ -14,7 +14,7 @@ def test_agent_orchestrator_is_a_real_secured_workflow_definition():
     workflow = json.loads(workflow_path.read_text(encoding="utf-8"))
     nodes = {node["name"]: node for node in workflow["nodes"]}
 
-    assert workflow["name"] == "Documents Made Clear · Agent Orchestrator"
+    assert workflow["name"] == "NOMIKOS SYNERGATHS · Agent Orchestrator"
     assert workflow["active"] is True
     assert workflow["settings"]["executionOrder"] == "v1"
 

@@ -1,6 +1,6 @@
-# Documents Made Clear accounts and secure deployment
+# NOMIKOS SYNERGATHS accounts and secure deployment
 
-Documents Made Clear uses Better Auth for account creation and session management, PostgreSQL
+NOMIKOS SYNERGATHS uses Better Auth for account creation and session management, PostgreSQL
 for its account/session records, and FastAPI for every protected document/RAG
 operation. The browser never receives an API key or stores a bearer token.
 

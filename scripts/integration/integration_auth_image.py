@@ -6,7 +6,7 @@ import secrets
 import subprocess
 import sys
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 PROGRAM = r"""
 import assert from 'node:assert/strict';
 import {existsSync} from 'node:fs';
@@ -20,7 +20,7 @@ if(config.reject) {
   console.log(JSON.stringify({gate:'PASSED',scenario:config.name,rejected:true}));
 } else {
   const {auth,pool}=await import('./src/auth.ts');
-  assert.equal(auth.options.appName,'Documents Made Clear');
+  assert.equal(auth.options.appName,'NOMIKOS SYNERGATHS');
   if(config.production) assert.equal(auth.options.advanced.defaultCookieAttributes.secure,true);
   else {
     await import('./src/server.ts');
@@ -76,7 +76,7 @@ def main():
                 "BETTER_AUTH_URL": "https://auth.documents.test",
                 "REQUIRE_EMAIL_VERIFICATION": "true",
                 "RESEND_API_KEY": "synthetic-not-a-real-key",
-                "EMAIL_FROM": "Documents Made Clear <security@documents.test>",
+                "EMAIL_FROM": "NOMIKOS SYNERGATHS <security@documents.test>",
             },
         }
     )

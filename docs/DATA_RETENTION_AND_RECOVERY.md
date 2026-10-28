@@ -58,7 +58,7 @@ This is local migration recovery, not approved backup expiry or off-machine DR.
   Therefore local at-rest encryption is **unverified**, not confirmed.
 - The active n8n container has execution-save settings disabled for future
   successful, failed, progress, and manual executions. All six workflows were
-  checked; both Documents Made Clear workflows now explicitly disable saved payloads and
+  checked; both NOMIKOS SYNERGATHS workflows now explicitly disable saved payloads and
   unrelated workflows retain their original settings. The former
   seven execution/payload rows had already been removed by automatic pruning:
   the live SQLite database now has zero rows in both tables. No manual purge

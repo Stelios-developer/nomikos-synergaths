@@ -1,4 +1,4 @@
-"""Mechanical migration of Documents Made Clear workflows; preserves unrelated workflows."""
+"""Mechanical migration of NOMIKOS SYNERGATHS workflows; preserves unrelated workflows."""
 import argparse
 import json
 from pathlib import Path
@@ -9,7 +9,7 @@ TARGET_IDS = {"nexusAgentOrchestrator", "manualPdfUploadAnalysis"}
 
 def harden(workflow: dict) -> dict:
     if workflow.get("id") not in TARGET_IDS:
-        raise ValueError("Only the two Documents Made Clear workflows may be migrated")
+        raise ValueError("Only the two NOMIKOS SYNERGATHS workflows may be migrated")
     workflow.setdefault("settings", {}).update({
         "saveDataSuccessExecution": "none", "saveDataErrorExecution": "none",
         "saveManualExecutions": False, "saveExecutionProgress": False,
@@ -54,7 +54,7 @@ if __name__ == "__main__":
     if isinstance(data, list):
         result = [harden(workflow) for workflow in data if workflow.get("id") in TARGET_IDS]
         if not result:
-            raise ValueError("No Documents Made Clear workflows found")
+            raise ValueError("No NOMIKOS SYNERGATHS workflows found")
     else:
         result = harden(data)
     args.destination.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

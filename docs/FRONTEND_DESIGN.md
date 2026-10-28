@@ -1,8 +1,8 @@
-# Documents Made Clear workspace design
+# NOMIKOS SYNERGATHS workspace design
 
 ## Product identity
 
-The public product name is **Documents Made Clear**. Shared frontend copy uses
+The public product name is **NOMIKOS SYNERGATHS**. Shared frontend copy uses
 `frontend/src/brand.ts`; page metadata, account emails and workflow display names
 use the same spelling. The longer name has compact, readable typography in the
 header and authentication screens.

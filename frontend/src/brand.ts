@@ -1,1 +1,1 @@
-export const BRAND_NAME = 'Documents Made Clear'
+export const BRAND_NAME = 'NOMIKOS SYNERGATHS'

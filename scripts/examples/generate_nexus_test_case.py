@@ -69,7 +69,7 @@ def footer(canvas, doc):
     canvas.line(1.7 * cm, 1.35 * cm, A4[0] - 1.7 * cm, 1.35 * cm)
     canvas.setFont("Document", 8)
     canvas.setFillColor(TEXT)
-    canvas.drawString(1.7 * cm, 0.85 * cm, "Documents Made Clear - Test document for evidence-first analysis")
+    canvas.drawString(1.7 * cm, 0.85 * cm, "NOMIKOS SYNERGATHS - Test document for evidence-first analysis")
     canvas.drawRightString(A4[0] - 1.7 * cm, 0.85 * cm, f"Page {doc.page}")
     canvas.restoreState()
 
@@ -78,7 +78,7 @@ story = []
 story += [
     section_label("Internal policy - test case"),
     P("2026 Greek Tax Compliance and Filing Policy", "DocumentTitle"),
-    P("A realistic test document containing deadlines, owners, risks, decisions and evidence-ready actions. Upload it to Documents Made Clear to test Overview, Facts, Timeline, Risks, Action plan, Decision center, Evidence and Ask.", "DocumentSubtitle"),
+    P("A realistic test document containing deadlines, owners, risks, decisions and evidence-ready actions. Upload it to NOMIKOS SYNERGATHS to test Overview, Facts, Timeline, Risks, Action plan, Decision center, Evidence and Ask.", "DocumentSubtitle"),
     P("Purpose", "DocumentH2"),
     P("This policy applies to Meridian Consulting Group's Greek subsidiary for fiscal year 2026. It covers income tax filings, VAT reporting, R&D deductions and business travel expense recognition. The Finance Director is accountable for compliance; the Tax Manager owns filing quality and escalation.", "DocumentBody"),
     P("Non-negotiable requirements", "DocumentH2"),
@@ -127,7 +127,7 @@ story += [
 story += [
     section_label("Decision center"),
     P("Decisions and proposed actions", "DocumentTitle"),
-    P("These decisions are intentionally written as a test case for Documents Made Clear. Each one should appear in the Decision center with its recommended action and supporting citations.", "DocumentSubtitle"),
+    P("These decisions are intentionally written as a test case for NOMIKOS SYNERGATHS. Each one should appear in the Decision center with its recommended action and supporting citations.", "DocumentSubtitle"),
     P("Decision 1 - Approve the annual filing assumptions", "DocumentH2"),
     P("Decision required by 30 June 2026: the Finance Director must approve the tax position, including the 22% corporate tax rate and the treatment of eligible R&D deductions. Recommended action: review the R&D evidence pack and approve only supported claims.", "DocumentBody"),
     P("Decision 2 - Assign final filing owner", "DocumentH2"),

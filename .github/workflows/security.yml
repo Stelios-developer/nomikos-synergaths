@@ -25,16 +25,16 @@ jobs:
         run: docker build --tag dmc-ci:${{ strategy.job-index }} ${{ matrix.directory }}
       - name: Test exact auth image without network or live credentials
         if: matrix.directory == 'auth-service'
-        run: python scripts/integration_auth_image.py dmc-ci:${{ strategy.job-index }}
+        run: python scripts/integration/integration_auth_image.py dmc-ci:${{ strategy.job-index }}
       - name: Verify exact backend source and isolated imports
         if: matrix.directory == 'backend'
-        run: python scripts/integration_backend_image.py dmc-ci:${{ strategy.job-index }}
+        run: python scripts/integration/integration_backend_image.py dmc-ci:${{ strategy.job-index }}
       - name: Test exact PDF image with synthetic Greek and English OCR
         if: matrix.directory == 'security/pdf_worker'
         run: |
           python -m venv .tools/pdf-test
           .tools/pdf-test/bin/python -m pip install --require-hashes --only-binary=:all: -r security/pdf_worker/requirements-linux-py312.lock
-          .tools/pdf-test/bin/python scripts/integration_pdf_image.py dmc-ci:${{ strategy.job-index }}
+          .tools/pdf-test/bin/python scripts/integration/integration_pdf_image.py dmc-ci:${{ strategy.job-index }}
       - name: Scan OS and language inventory, including unfixed advisories
         run: |
           mkdir -p output/security

@@ -13,7 +13,7 @@ from db.vector_store import PgVectorStore, VectorSettings
 def store():
     dsn = os.getenv("DMC_TEST_VECTOR_URL")
     if not dsn:
-        pytest.skip("Run scripts/integration_vectors.py to create an isolated database")
+        pytest.skip("Run scripts/database/integration_vectors.py to create an isolated database")
     instance = PgVectorStore(VectorSettings(dsn, 3, "synthetic-integration"))
     instance.verify()
     yield instance

@@ -6,7 +6,7 @@ from pathlib import Path
 import subprocess
 import sys
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 PROGRAM = r"""
 import hashlib,importlib.util,json,os,pathlib,shutil,sys
 expected=json.load(sys.stdin)
@@ -23,7 +23,7 @@ try:
 except OSError: pass
 else: raise AssertionError('Root filesystem is writable')
 import main,torch,psycopg,fitz
-assert main.app.title=='Documents Made Clear API'
+assert main.app.title=='NOMIKOS SYNERGATHS API'
 print(json.dumps({'gate':'PASSED','code_files_verified':len(actual),'uid':os.getuid(),
                  'pip_present':False,'shell_present':False,'torch':torch.__version__}))
 """

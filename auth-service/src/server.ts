@@ -51,7 +51,7 @@ const server = createServer(async (request, response) => {
 });
 
 server.listen(port, host, () => {
-  console.info(`Documents Made Clear auth service listening on port ${port}`);
+  console.info(`NOMIKOS SYNERGATHS auth service listening on port ${port}`);
 });
 
 async function shutdown() {

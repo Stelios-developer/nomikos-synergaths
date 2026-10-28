@@ -76,7 +76,7 @@ change, signing operation or push was performed as part of the local audit.
 
 Set `ANALYSIS_DISPATCH_ENABLED=true` and a distinct
 `ANALYSIS_DISPATCH_DATABASE_URL` for the restricted `dmc_dispatcher` role.
-Use the runtime-only vector DSN separately. `scripts/setup_vector_database.py`
+Use the runtime-only vector DSN separately. `scripts/database/setup_vector_database.py`
 is an explicit owner operation creating/verifying roles and migrations;
 the API never applies DDL. Keep credentials in ignored environment files.
 Production dispatch requires a reviewed host and `sslmode=verify-full`.
@@ -96,7 +96,7 @@ request cancellation for delivered work and wait for safe closure. Closure is
 an explicit action and does not itself start replacement work.
 
 For migration maintenance use the zero-job encrypted backup/restore checks in
-`scripts/backup_vector_database.py` and `scripts/activate_local_dispatcher.py`.
+`scripts/database/backup_vector_database.py` and `scripts/database/activate_local_dispatcher.py`.
 Activation already applied migration 003 locally; never edit applied migration
 bytes. The backup contains sensitive data and its DPAPI key is machine/profile
 bound, not an offsite recovery solution. Preserve the old image for rollback;

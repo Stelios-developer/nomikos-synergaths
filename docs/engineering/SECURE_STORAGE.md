@@ -60,7 +60,7 @@ Create distinct random values in `infra/vector/.env` using its example, then:
 
 ```powershell
 docker compose -f infra/vector/compose.yml --env-file infra/vector/.env up -d --wait
-backend/.venv/Scripts/python.exe scripts/setup_vector_database.py
+backend/.venv/Scripts/python.exe scripts/database/setup_vector_database.py
 npm run test:integration
 ```
 
@@ -71,7 +71,7 @@ rollback, thread/pool isolation, role permissions, model drift and persistence.
 For the exact backup recorded in the ignored migration report:
 
 ```powershell
-backend/.venv/Scripts/python.exe scripts/restore_drill_storage.py output/security-backups/<exact-backup>.tar.aesgcm
+backend/.venv/Scripts/python.exe scripts/database/restore_drill_storage.py output/security-backups/<exact-backup>.tar.aesgcm
 ```
 
 The restore runner validates the archive before creating a fresh

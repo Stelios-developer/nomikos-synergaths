@@ -1,7 +1,7 @@
-# Documents Made Clear security and trust release gate
+# NOMIKOS SYNERGATHS security and trust release gate
 
 This is a release checklist, not a certification or penetration-test report.
-Do not describe Documents Made Clear as end-to-end encrypted, malware-free, or suitable for
+Do not describe NOMIKOS SYNERGATHS as end-to-end encrypted, malware-free, or suitable for
 regulated confidential data until the relevant controls have been independently
 verified in the deployed environment.
 
@@ -217,7 +217,7 @@ See [validation](engineering/VALIDATION.md) and
   `pip check` reports no broken requirements. No audit findings are hidden.
 - n8n was updated to **2.42.7**, digest-pinned, preserving the volume and all
   six workflows. Global retention settings were inspected in the actual
-  container. Both Documents Made Clear workflows explicitly disable saved payloads; unrelated
+  container. Both NOMIKOS SYNERGATHS workflows explicitly disable saved payloads; unrelated
   workflows were preserved. Community packages, the public management API,
   remote templates, and diagnostics are disabled.
 - A live missing-integration-header webhook returned **401**. A later
@@ -248,7 +248,7 @@ The published advisories currently have no patched release:
 [CVE-2026-45830](https://github.com/advisories/GHSA-2wm9-hf6c-p5cr), and
 [CVE-2026-45831](https://github.com/advisories/GHSA-xph7-9rjv-w5fr).
 Their described attack paths target Chroma server collection/configuration
-and authorization APIs. Documents Made Clear uses an embedded Rust-backed PersistentClient,
+and authorization APIs. NOMIKOS SYNERGATHS uses an embedded Rust-backed PersistentClient,
 no public Chroma server, a fixed collection, explicit supplied embeddings,
 and `embedding_function=None`. Its API never accepts Chroma collection or
 embedding-function configuration. This is an applicability assessment and

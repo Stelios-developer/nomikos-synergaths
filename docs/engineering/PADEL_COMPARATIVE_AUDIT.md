@@ -1,7 +1,7 @@
 # Engineering comparison and transfer audit
 
 Review date: 2026-10-27. Source: the owner's local Padel Club Management
-Platform checkout. Target: Documents Made Clear (DMC).
+Platform checkout. Target: NOMIKOS SYNERGATHS (DMC).
 
 This is the historical initial-transfer review. Later remediation replaced the
 Chroma runtime, resolved the Python image OS gate and activated durable background

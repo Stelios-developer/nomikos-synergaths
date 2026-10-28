@@ -3,9 +3,9 @@ import { readFileSync } from 'node:fs'
 import test from 'node:test'
 
 const read = (path) => readFileSync(new URL('../' + path, import.meta.url), 'utf8')
-const brand = 'Documents Made Clear'
+const brand = 'NOMIKOS SYNERGATHS'
 
-test('public page metadata uses Documents Made Clear', () => {
+test('public page metadata uses NOMIKOS SYNERGATHS', () => {
   const html = read('index.html')
   assert.ok(html.includes('<title>' + brand + ' — Document Intelligence</title>'))
   assert.ok(html.includes('name="application-name" content="' + brand + '"'))

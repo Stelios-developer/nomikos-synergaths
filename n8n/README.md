@@ -4,7 +4,7 @@ Run `docker compose up -d` from this directory, then open
 http://localhost:5678. n8n asks you to create the local owner account on the
 first visit.
 
-`agent-orchestrator.workflow.json` defines the Documents Made Clear Agent Orchestrator. It
+`agent-orchestrator.workflow.json` defines the NOMIKOS SYNERGATHS Agent Orchestrator. It
 contains the complete application-triggered case flow, the mandatory evidence
 gate, and visible, independent on-demand branches for Document Assistant,
 Supervisor, Research, and Expert Review.

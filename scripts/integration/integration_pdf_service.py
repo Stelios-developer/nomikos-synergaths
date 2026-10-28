@@ -12,7 +12,7 @@ from urllib.request import Request, urlopen
 from dotenv import dotenv_values
 import fitz
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 BASE = "http://127.0.0.1:5186"
 
 
