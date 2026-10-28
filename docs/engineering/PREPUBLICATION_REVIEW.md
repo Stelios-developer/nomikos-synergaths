@@ -1,9 +1,20 @@
 # Prepublication review — 2026-10-28
 
-Decision: **do not commit/publish the current staged snapshot or deploy it to
-production yet**. The working tree passes the local checks below. The index
-contains an older, incomplete implementation. GitHub publication and production
-service release are separate gates.
+## Update — publication completed; production still blocked
+
+The review below records the state **before** publication. Its warnings about the
+old index, missing staging, and the original Render settings are historical.
+The reviewed index was rebuilt and checked in an isolated clean snapshot; local
+commits `f54004f` and `ccf2734` were pushed to the private repository. CI was
+started, but a successful hosted run has not been established. GitHub Actions
+usage is currently blocked by the account's $0 budget. Branch protection is not
+enforced for this private repository on the current account plan. Do not treat
+repository publication as approval to deploy customer data.
+
+The Render template now builds the Dockerfile and declares dispatcher settings;
+it remains incomplete and does not deploy the previously tested signed image
+digest. Its persistent disk ownership and embedding cache are unverified on a
+real provider. The production gates below remain open.
 
 ## Verified in this review
 
@@ -29,7 +40,7 @@ service release are separate gates.
   scans per engine (Chromium/Firefox/WebKit). Browsers were not rerun for this
   documentation-only review; incomplete accessibility checks need manual review.
 
-## Gate 1 — make the Git snapshot coherent
+## Historical Gate 1 — snapshot before publication
 
 1. Preserve and review the existing 157 staged changes, including 18 staged
    deletions. Necessary implementation files are still untracked/not staged:
@@ -55,12 +66,12 @@ in this review. The scan cannot approve an index that is changed afterward.
 
 ## Gate 2 — prepare the actual production deployment
 
-1. **Choose hosting and align manifests.** `backend/render.yaml` currently uses
-   native Python rather than the tested Wolfi Docker image and does not declare
-   `ANALYSIS_DISPATCH_ENABLED` or `ANALYSIS_DISPATCH_DATABASE_URL`. It is an
-   incomplete deployment template, not a release manifest. Use the exact tested
-   image/digest, configure the restricted dispatcher role, readiness and graceful
-   shutdown, then verify the host's streaming/timeout behavior.
+1. **Choose hosting and align manifests.** `backend/render.yaml` now builds the
+   Wolfi Dockerfile and declares `ANALYSIS_DISPATCH_ENABLED` and the restricted
+   dispatcher database URL. This is still an incomplete deployment template,
+   not a release manifest: it does not bind deployment to the exact tested and
+   signed image digest. Configure readiness and graceful shutdown, and verify
+   the host's streaming/timeout behavior.
 2. **Persistent storage and topology.** Keep PDFs, case SQLite, publication locks
    and operational state on persistent storage. Prepare an explicit embedding
    model/cache before serving users: the current model is loaded/downloaded on

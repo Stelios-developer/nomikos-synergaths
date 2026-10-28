@@ -27,9 +27,9 @@ report zero OS/Python advisory-package records. Exact-image imports/source
 checks and synthetic English/Greek OCR/CDR pass. These are scoped scan/test
 results, not a vulnerability-free or production certification. See the
 [current validation record](engineering/VALIDATION.md) and
-[image gate](engineering/DEPENDENCIES.md). Configured CI has not executed
-on GitHub; release signing, production/provider encryption and hosting remain
-unverified. Historical failed image reports remain available locally.
+[image gate](engineering/DEPENDENCIES.md). A hosted CI run was started, but successful hosted CI has not been
+verified; the account $0 Actions budget currently blocks further usage. Release
+signing, production/provider encryption and hosting remain unverified. Historical failed image reports remain available locally.
 
 The refreshed auth-image scan exposed new Better Auth 1.6.26 advisories. Both
 client/service were upgraded together to 1.7.14; current npm and rebuilt image
@@ -62,8 +62,9 @@ targeted compatible lockfile updates were applied. Both subsequent npm audits
 reported zero findings. This is dependency-audit evidence, not an image/OS
 scan or an assurance that an already-running process has loaded the new code.
 
-The new pinned security CI includes npm inventory/audit, scoped OSV and a
-fail-closed CodeQL SARIF gate. It has **not run on GitHub** in this audit.
+The pinned security CI includes npm inventory/audit, scoped OSV and a
+fail-closed CodeQL SARIF gate. Its successful hosted execution has **not been
+verified**.
 See [validation](engineering/VALIDATION.md) and
 [remaining engineering gates](engineering/ROADMAP.md) before a release.
 
@@ -129,8 +130,9 @@ See [validation](engineering/VALIDATION.md) and
   both services. Auth image defaults are production; local compose overrides
   them explicitly. Production vector startup verifies PostgreSQL runtime-role
   restrictions, SQL migration hashes, model/dimension compatibility and TLS.
-  The vulnerable Chroma runtime has been replaced; image OS findings still
-  block release. See [current validation](engineering/VALIDATION.md).
+  The vulnerable Chroma runtime has been replaced; the prior Debian OS findings
+  were addressed in the locally scanned Wolfi candidates, while signed image
+  promotion and deployed image verification still block release. See [current validation](engineering/VALIDATION.md).
 
 ## Release blockers requiring deployment work
 
@@ -146,8 +148,9 @@ See [validation](engineering/VALIDATION.md) and
    Node lockfiles were updated and audited; a local backend SBOM and
    audit were generated under ignored `output/`. Python security floors are
    enforced and platform-specific hash locks are tested. Current backend/PDF
-   candidate images have been built and scanned: unresolved Debian OS findings
-   keep the image gate closed. Scheduled review is configured in CI but hosted
+   Wolfi candidate images have been built and scanned; the previous Debian OS
+   findings do not describe those candidates. Signed immutable image promotion
+   and deployed image verification remain open. Scheduled review is configured in CI but hosted
    execution, controlled releases and signature verification remain. Local
    compose is not a production specification. See
    [dependency/image evidence](engineering/DEPENDENCIES.md).
