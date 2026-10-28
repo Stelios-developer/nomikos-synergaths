@@ -2,7 +2,7 @@
 
 <p align="center"><strong>Understand the document. Trace the evidence. Keep people in control.</strong><br />PDF analysis · facts and deadlines · risk review · cited answers</p>
 
-<p align="center"><a href="docs/DEMO.md">Interactive demo</a> · <a href="docs/assets/demo-tour.mp4">20-second visual tour</a> · <a href="#the-product">Product</a> · <a href="#architecture">Architecture</a> · <a href="#run-locally">Run locally</a> · <a href="#verification-and-release-status">Verification</a> · <a href="docs/README.el.md">Ελληνικά</a></p>
+<p align="center"><a href="docs/DEMO.md">Interactive demo</a> · <a href="docs/demo/README.md">Narrated product demo</a> · <a href="#the-product">Product</a> · <a href="#architecture">Architecture</a> · <a href="#run-locally">Run locally</a> · <a href="#verification-and-release-status">Verification</a> · <a href="docs/README.el.md">Ελληνικά</a></p>
 
 <p align="center">
 <img alt="Python" src="https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white" />
@@ -28,7 +28,7 @@ This is an investigative aid, not a substitute for legal advice or professional 
 
 <p align="center"><img src="docs/assets/demo-overview.jpg" width="100%" alt="Interactive demo overview with synthetic document findings" /></p>
 
-*The image and [short visual tour](docs/assets/demo-tour.mp4) use synthetic demo data, not a real account or an AI run. The tour is a silent overview of four screens.*
+*The image and [narrated walkthrough](docs/demo/README.md) use synthetic demo data, not a real account or an AI run. The walkthrough uses screenshots of the interactive demo, with English narration and Greek subtitles available.*
 
 ## What to inspect in the code
 

@@ -18,4 +18,4 @@ the demo. The demo must not be exposed to a network or used for real documents.
 This demonstration uses mocked APIs. It does not validate authentication,
 security controls, actual PDF processing or the accuracy of AI answers.
 
-A [20-second silent visual tour](assets/demo-tour.mp4) shows four demo screens.
+Watch the [narrated walkthrough](demo/README.md), with English narration and Greek subtitles. It uses screenshots of this synthetic demo.
