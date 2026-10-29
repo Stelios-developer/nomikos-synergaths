@@ -1,5 +1,30 @@
 # Local validation record
 
+## OCR and retrieval follow-up, 2026-10-29
+
+Two subsequent real AI questions used a synthetic PDF. The milestone answer
+correctly identified the 30 June and 15 July dates and their owners; the risk
+answer omitted three risks that continued in a neighboring chunk. The final
+retrieval change was made after those calls: a no-provider check against the
+newly indexed synthetic PDF confirms all four risk excerpts are now retrieved.
+The model's final answer after that change has not been tested; retrieval alone
+cannot establish answer correctness.
+
+The PDF worker reconstructs and OCRs at 2x with higher JPEG quality and
+Tesseract page segmentation mode 4. An exact-image test, a live gateway test,
+and four additional synthetic PDF checks covered English, Greek, scanned text
+and a table, including the sample's 15 July date. Hybrid retrieval adds limited
+Greek/English query expansion, reserves lexical matches and includes a bounded
+same-page continuation scoped to the same document and workspace. A partial
+positive grader result retains the bounded candidates, prioritizing matches.
+This is not general translation or a correctness guarantee.
+
+OCR still confuses visually similar Greek/Latin characters, complex layouts may
+behave differently, and review against the source remains necessary. A newly
+indexed copy of the earlier synthetic demo document was created; its original
+saved case was preserved. The new copy has not been analyzed by AI. The earlier
+demonstration video is historical and does not validate the current changes.
+
 ## Current local completion, 2026-10-28
 
 This section supersedes the dated checkpoints below. The three requested local

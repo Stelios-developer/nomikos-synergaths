@@ -152,8 +152,13 @@ def _evaluate(state: AgentState) -> AgentState:
     if not relevant_chunks:
         return {**state, "chunks": state["chunks"], "should_retry": False}
 
-    should_retry = (not relevant_chunks) and state["iteration"] < MAX_ITERATIONS
-    return {**state, "chunks": relevant_chunks, "should_retry": should_retry}
+    # Model relevance classification can miss a continuation or a fact in a
+    # different language. Rank approved evidence first but keep the entire
+    # bounded workspace-scoped result set for answer generation.
+    retained = {id(chunk) for chunk in relevant_chunks}
+    relevant_chunks.extend(chunk for chunk in state["chunks"] if id(chunk) not in retained)
+
+    return {**state, "chunks": relevant_chunks, "should_retry": False}
 
 
 def _rephrase(state: AgentState) -> AgentState:

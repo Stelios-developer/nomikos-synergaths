@@ -148,7 +148,7 @@ def test_evaluate_filters_out_chunks_graded_irrelevant():
          patch.object(agent, "generate_answer", side_effect=fake_generate_answer):
         result = agent.run_agent("what is x?")
 
-    assert [c["text"] for c in captured["chunks"]] == ["relevant one", "relevant two"]
+    assert [c["text"] for c in captured["chunks"]] == ["relevant one", "relevant two", "off topic noise"]
     assert result["should_retry"] is False
 
 
@@ -193,3 +193,11 @@ def test_grade_chunks_falls_back_when_list_length_mismatches_chunk_count():
     with patch.object(agent, "complete", return_value="[true]"):  # only 1 flag for 2 chunks
         result = agent._grade_chunks("question", chunks)
     assert result == [True, True]
+
+
+def test_evaluate_retains_ranked_context_when_grader_selects_only_one():
+    chunks = [{"text": str(i), "filename": "case.pdf", "page_number": 1, "chunk_index": i} for i in range(5)]
+    with patch.object(agent, "hybrid_search", return_value=chunks), \
+         patch.object(agent, "_grade_chunks", return_value=[True, False, False, False, False]):
+        _, found, _ = agent.agentic_retrieve("κίνδυνοι")
+    assert [c["text"] for c in found] == ["0", "1", "2", "3", "4"]

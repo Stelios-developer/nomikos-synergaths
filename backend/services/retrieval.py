@@ -21,6 +21,7 @@ keyword-search half even if the vector half were filtered correctly.
 """
 import os
 import re
+import unicodedata
 
 from rank_bm25 import BM25Okapi
 
@@ -38,7 +39,32 @@ def embed_query(question: str) -> list[float]:
 
 
 def _tokenize(text: str) -> list[str]:
-    return re.findall(r"\w+", text.lower())
+    # Accent-insensitive matching helps Greek queries without altering evidence.
+    normalized = unicodedata.normalize("NFKD", text.casefold())
+    return re.findall(r"\w+", "".join(c for c in normalized if not unicodedata.combining(c)))
+
+
+# Narrow query-only bridges. This is not machine translation and must never
+# change source text or be treated as a comprehensive domain vocabulary.
+_CROSS_LANGUAGE_TERMS = (
+    (("κινδυν", "risk", "risks", "hazard"), ("risk", "risks", "penalty", "exposure", "mitigation")),
+    (("ενεργει", "μετρ", "action", "actions", "mitigation"), ("action", "actions", "mitigation", "review", "escalation")),
+    (("προθεσμ", "ημερομην", "deadline", "deadlines"), ("deadline", "deadlines", "due", "filing", "date")),
+    (("υπευθυν", "αρμοδι", "responsible", "owner"), ("owner", "responsible", "manager", "director", "controller")),
+    (("υποχρεωσ", "απαιτησ", "obligation", "requirement"), ("obligation", "requirements", "required", "must", "shall")),
+    (("εγκρισ", "αποφασ", "approval", "decision"), ("approval", "approve", "decision", "review")),
+    (("επισκοπ", "διοικητικ", "review", "management"), ("review", "management", "director")),
+    (("συμφωνι", "συμφιλιωσ", "reconciliation", "reconcile"), ("reconciliation", "reconcile", "agreement", "review")),
+)
+
+
+def _query_tokens(question: str) -> list[str]:
+    tokens = _tokenize(question)
+    expanded = list(tokens)
+    for prefixes, aliases in _CROSS_LANGUAGE_TERMS:
+        if any(token.startswith(prefix) for token in tokens for prefix in prefixes):
+            expanded.extend(aliases)
+    return list(dict.fromkeys(expanded))
 
 
 def vector_search(
@@ -95,9 +121,16 @@ def keyword_search(
 
     tokenized_corpus = [_tokenize(d) for d in docs]
     bm25 = BM25Okapi(tokenized_corpus)
-    scores = bm25.get_scores(_tokenize(question))
+    query_tokens = _query_tokens(question)
+    scores = bm25.get_scores(query_tokens)
 
-    ranked = sorted(zip(docs, metas, scores), key=lambda x: x[2], reverse=True)[:n_results]
+    # Do not give non-matching documents an artificial keyword rank. BM25 can
+    # legitimately produce zero/negative scores for common terms, so require
+    # token overlap rather than a positive score.
+    query_set = set(query_tokens)
+    matches = ((doc, meta, score) for doc, meta, score, tokens in zip(docs, metas, scores, tokenized_corpus)
+               if query_set.intersection(tokens))
+    ranked = sorted(matches, key=lambda x: x[2], reverse=True)[:n_results]
 
     return [{
         "text": doc,
@@ -148,4 +181,39 @@ def hybrid_search(
 ) -> list[dict]:
     vector_results = vector_search(question, n_results=10, document_filter=document_filter, session_id=session_id)
     keyword_results = keyword_search(question, n_results=10, document_filter=document_filter, session_id=session_id)
-    return reciprocal_rank_fusion(vector_results, keyword_results, n_final=n_final)
+    fused = reciprocal_rank_fusion(vector_results, keyword_results, n_final=n_final)
+    # Preserve up to two lexical candidates. Cross-language vector embeddings
+    # can otherwise push a relevant keyword match just outside the final set.
+    # Every candidate has already been restricted to the same workspace/file.
+    reserved = {_chunk_key(c) for c in keyword_results[:min(2, n_final)]}
+    selected = {_chunk_key(c) for c in fused}
+    for candidate in keyword_results[:min(2, n_final)]:
+        key = _chunk_key(candidate)
+        if key in selected:
+            continue
+        for index in range(len(fused) - 1, -1, -1):
+            if _chunk_key(fused[index]) not in reserved:
+                selected.remove(_chunk_key(fused[index]))
+                fused[index] = candidate
+                selected.add(key)
+                break
+    # A table or paragraph may continue into the next chunk on the same
+    # page. Keep one bounded continuation of the strongest lexical match, using
+    # only the current workspace and optional document filter.
+    if n_final >= 3 and len(keyword_results) >= 2:
+        anchor = keyword_results[0]
+        corpus = get_collection().get(workspace_id=session_id, filename=document_filter, include=["documents", "metadatas"])
+        for text, meta in zip(corpus["documents"], corpus["metadatas"]):
+            if (meta.get("filename") == anchor["filename"] and
+                meta.get("page_number") == anchor["page_number"] and
+                meta.get("chunk_index") == anchor["chunk_index"] + 1):
+                continuation = {"text": text, "filename": meta["filename"],
+                                "page_number": meta["page_number"], "chunk_index": meta["chunk_index"]}
+                key = _chunk_key(continuation)
+                if key not in selected:
+                    for index in range(len(fused) - 1, -1, -1):
+                        if _chunk_key(fused[index]) not in reserved:
+                            fused[index] = continuation
+                            break
+                break
+    return fused

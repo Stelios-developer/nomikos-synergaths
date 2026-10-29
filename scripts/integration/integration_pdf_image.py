@@ -36,6 +36,13 @@ with fitz.open(stream=rebuilt[4:],filetype='pdf') as document:
 pages=json.loads(run_private_job('ocr',rebuilt[4:]))['pages']
 assert 'SYNTHETIC' in pages[0]['text'].upper(), 'OCR did not recover the synthetic fixture'
 assert 'ΠΡΟΘΕΣΜΙΑ' in pages[0]['text'].upper(), 'Greek OCR did not recover the fixture'
+text = pages[0]['text']
+assert '15 July 2026' in text and '16 July 2026' not in text, 'OCR changed the synthetic deadline'
+assert 'reconciliation' in text and 'Manager' in text, 'OCR lost the milestone or owner'
+# Mixed-script OCR can still confuse visually similar Greek/Latin letters;
+# document-level human review remains mandatory.
+assert abs(text.index('15 July 2026') - text.index('reconciliation')) < 80, 'OCR separated a synthetic table row'
+assert abs(text.index('Late filing') - text.index('Weekly readiness review')) < 80, 'OCR separated risk from mitigation'
 try:
     run_private_job('sanitize',b'not a PDF')
 except UnsafePdf:
@@ -68,6 +75,8 @@ def main():
         page.insert_text(
             (60, 160), "ΠΡΟΘΕΣΜΙΑ ΠΛΗΡΩΜΗΣ", fontname="fixture-greek", fontsize=24
         )
+        page.insert_text((60, 220), "15 July 2026   Final reconciliation   Tax Manager", fontsize=16)
+        page.insert_text((60, 260), "Late filing   High   Weekly readiness review", fontsize=16)
         page.insert_link(
             {
                 "kind": fitz.LINK_URI,

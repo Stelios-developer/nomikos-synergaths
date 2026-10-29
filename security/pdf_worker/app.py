@@ -21,7 +21,8 @@ MAX_INPUT_BYTES = int(os.getenv("MAX_UPLOAD_SIZE_MB", "20")) * 1024 * 1024
 MAX_OUTPUT_BYTES = MAX_INPUT_BYTES * 2
 MAX_PAGES = int(os.getenv("MAX_PDF_PAGES", "250"))
 MAX_PAGE_PIXELS = 20_000_000
-RENDER_ZOOM = 1.5
+RENDER_ZOOM = 2.0
+OCR_ZOOM = 2.0
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 job_slot = asyncio.Semaphore(1)
@@ -108,7 +109,7 @@ def reconstruct_pdf(contents: bytes) -> tuple[bytes, int]:
                     if rect.width * rect.height * RENDER_ZOOM * RENDER_ZOOM > MAX_PAGE_PIXELS:
                         raise UnsafePdf("The PDF page is too large to reconstruct safely.")
                     pixmap = original.get_pixmap(matrix=fitz.Matrix(RENDER_ZOOM, RENDER_ZOOM), alpha=False)
-                    image = pixmap.tobytes("jpeg", jpg_quality=80)
+                    image = pixmap.tobytes("jpeg", jpg_quality=95)
                     page = result.new_page(width=rect.width, height=rect.height)
                     page.insert_image(page.rect, stream=image)
                     if result.xref_length() > MAX_PAGES * 10 + 100:
@@ -133,11 +134,11 @@ def extract_ocr_pages(contents: bytes) -> list[dict]:
                 raise UnsafePdf("Invalid OCR page count.")
             pages = []
             for index, page in enumerate(document):
-                if page.rect.width * page.rect.height * 1.5 * 1.5 > MAX_PAGE_PIXELS:
+                if page.rect.width * page.rect.height * OCR_ZOOM * OCR_ZOOM > MAX_PAGE_PIXELS:
                     raise UnsafePdf("The PDF page is too large to OCR safely.")
-                pixels = page.get_pixmap(matrix=fitz.Matrix(1.5, 1.5), alpha=False)
+                pixels = page.get_pixmap(matrix=fitz.Matrix(OCR_ZOOM, OCR_ZOOM), alpha=False)
                 completed = subprocess.run(
-                    ["tesseract", "stdin", "stdout", "-l", "ell+eng"],
+                    ["tesseract", "stdin", "stdout", "-l", "ell+eng", "--psm", "4"],
                     input=pixels.tobytes("png"),
                     capture_output=True,
                     check=False,

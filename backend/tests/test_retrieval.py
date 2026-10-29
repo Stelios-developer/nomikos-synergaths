@@ -87,3 +87,58 @@ def test_hybrid_search_document_filter_applies_to_both_paths():
     with patch.object(retrieval, "embed_query", return_value=[0.9, 0.1, 0]):
         results = retrieval.hybrid_search("tax deduction", document_filter="tax.pdf")
     assert all(r["filename"] == "tax.pdf" for r in results)
+
+
+def test_greek_risk_question_finds_english_risk_and_mitigation_chunks():
+    col = get_collection()
+    col.add(
+        workspace_id="greek-test",
+        ids=["g1", "g2", "g3"], embeddings=[[1, 0, 0]] * 3,
+        documents=["Decision center and proposed actions.",
+                   "Known risks and mitigations: late filing may cause a penalty. Weekly readiness review is required.",
+                   "General introduction and policy purpose."],
+        metadatas=[{"filename": "policy.pdf", "page_number": 2, "chunk_index": i, "session_id": "greek-test"} for i in range(3)],
+    )
+    results = retrieval.keyword_search("Ποιοι είναι οι βασικοί κίνδυνοι και ποιες ενέργειες προτείνονται;", session_id="greek-test")
+    assert any("late filing" in item["text"] for item in results)
+    assert all("General introduction" not in item["text"] for item in results)
+
+
+def test_keyword_search_does_not_rank_nonmatching_chunks():
+    _seed_collection()
+    assert retrieval.keyword_search("unmatchedtermxyz") == []
+
+
+def test_hybrid_preserves_relevant_lexical_candidates_when_vectors_dominate():
+    vectors = [{"filename": "case.pdf", "chunk_index": i, "page_number": 1, "text": f"vector {i}"} for i in range(5)]
+    lexical = [{"filename": "case.pdf", "chunk_index": 20 + i, "page_number": 2, "text": f"risk {i}"} for i in range(2)]
+    with patch.object(retrieval, "vector_search", return_value=vectors), patch.object(retrieval, "keyword_search", return_value=lexical):
+        result = retrieval.hybrid_search("κίνδυνοι", document_filter="case.pdf", session_id="tenant", n_final=5)
+    assert len(result) == 5
+    assert {20, 21} <= {row["chunk_index"] for row in result}
+
+
+def test_greek_management_and_reconciliation_question_finds_english_milestones():
+    col = get_collection()
+    col.add(workspace_id="milestones", ids=["m1", "m2", "m3"], embeddings=[[1, 0, 0]] * 3,
+            documents=["30 June 2026 Management review of draft tax position Finance Director",
+                       "15 July 2026 Final reconciliation and legal review Tax Manager",
+                       "Travel receipts are due within 45 days"],
+            metadatas=[{"filename": "policy.pdf", "page_number": 2, "chunk_index": i, "session_id": "milestones"} for i in range(3)])
+    results = retrieval.keyword_search("Ποιες είναι οι προθεσμίες για τη διοικητική επισκόπηση και την τελική συμφωνία;", session_id="milestones")
+    assert {0, 1} <= {row["chunk_index"] for row in results}
+
+
+def test_hybrid_preserves_same_page_continuation_without_crossing_workspace():
+    col = get_collection()
+    for scope, document in [("tenant-a", "A risk and its first mitigation"), ("tenant-b", "PRIVATE OTHER WORKSPACE")]:
+        col.add(workspace_id=scope, ids=[scope+"0", scope+"1"], embeddings=[[1,0,0],[1,0,0]],
+                documents=["risk heading", document], metadatas=[
+                    {"filename":"case.pdf","page_number":2,"chunk_index":i,"session_id":scope} for i in range(2)])
+    vectors = [{"filename":"case.pdf","page_number":1,"chunk_index":i+10,"text":"unrelated"} for i in range(5)]
+    lexical = [{"filename":"case.pdf","page_number":2,"chunk_index":0,"text":"risk heading"},
+               {"filename":"case.pdf","page_number":1,"chunk_index":0,"text":"intro"}]
+    with patch.object(retrieval,"vector_search",return_value=vectors), patch.object(retrieval,"keyword_search",return_value=lexical):
+        rows = retrieval.hybrid_search("risk",document_filter="case.pdf",session_id="tenant-a",n_final=5)
+    assert "A risk and its first mitigation" in [row["text"] for row in rows]
+    assert all("PRIVATE OTHER WORKSPACE" not in row["text"] for row in rows)
