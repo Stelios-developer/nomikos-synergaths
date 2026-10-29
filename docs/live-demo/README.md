@@ -1,5 +1,23 @@
 # Local application walkthrough with live AI questions
 
+## Greek narrated walkthrough, 29 October 2026
+
+- [Greek video](nomikos-live-demo-el.mp4) · [Greek subtitles](captions-el-2026-10-29.srt) · [Narration and scene descriptions](storyboard-el-2026-10-29.json)
+
+This 2 minute 6 second edit uses 39 screenshots from a real local UI session,
+not continuous video. It uses a synthetic tax-policy PDF, a dedicated synthetic
+account, and locally generated Greek narration. It shows a copied historical
+case, which was not rerun with the new OCR. Two actual questions were submitted
+after the OCR and retrieval changes. The first identified the two requested
+milestones and owners; automatic evidence checking was unavailable. The second
+identified all four risks but wrongly described the Finance Director as a risk
+owner, although the synthetic source identifies the R&D Lead as owner and the
+director as approver. The automated check nevertheless reported 4/4 supported.
+The video preserves this failure; it does not establish reliable AI answers or
+production readiness.
+
+## Earlier English recording
+
 A 2 minute 18 second narrated walkthrough of the actual local frontend and
 backend, using a synthetic tax-policy PDF and a dedicated demo account. The edit
 assembles 101 sequential screenshots captured during the real interaction;

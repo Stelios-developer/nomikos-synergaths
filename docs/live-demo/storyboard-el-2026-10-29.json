@@ -1,0 +1,119 @@
+[
+  {
+    "title": "Σύνδεση",
+    "frames": [
+      1,
+      1
+    ],
+    "en": "Welcome to Nomikos Synergathis. This walkthrough uses the real local application and a synthetic tax policy.",
+    "el": "Καλώς ήρθες στον Νομικό Συνεργάτη. Η παρουσίαση δείχνει την πραγματική τοπική εφαρμογή με συνθετικό έγγραφο."
+  },
+  {
+    "title": "Χώρος εγγράφων",
+    "frames": [
+      2,
+      3
+    ],
+    "en": "The document workspace lets us add PDFs and return to a saved case. The file was reindexed with the updated OCR.",
+    "el": "Στον χώρο εγγράφων ανεβάζουμε PDF και επιστρέφουμε σε αποθηκευμένες υποθέσεις. Το αρχείο επανευρετηριάστηκε με το νέο OCR."
+  },
+  {
+    "title": "Επισκόπηση",
+    "frames": [
+      4,
+      5
+    ],
+    "en": "The overview shows the document profile and the existing saved analysis. This saved analysis was created before the latest OCR update.",
+    "el": "Η επισκόπηση δείχνει το προφίλ και την αποθηκευμένη ανάλυση, η οποία δημιουργήθηκε πριν από την τελευταία διόρθωση OCR."
+  },
+  {
+    "title": "Γεγονότα και υποχρεώσεις",
+    "frames": [
+      6,
+      7
+    ],
+    "en": "Facts and obligations collect the requirements found in the document. An empty section does not prove that the original has no requirements.",
+    "el": "Τα γεγονότα και οι υποχρεώσεις συγκεντρώνουν τα ευρήματα. Μια κενή ενότητα δεν αποδεικνύει ότι το έγγραφο δεν περιέχει υποχρεώσεις."
+  },
+  {
+    "title": "Χρονολόγιο",
+    "frames": [
+      8,
+      9
+    ],
+    "en": "The timeline organizes extracted dates and responsibilities for review against the original source.",
+    "el": "Το χρονολόγιο οργανώνει τις ημερομηνίες και τους υπεύθυνους για έλεγχο με βάση την αρχική πηγή."
+  },
+  {
+    "title": "Κίνδυνοι",
+    "frames": [
+      10,
+      11
+    ],
+    "en": "Risk radar presents detected exposure, proposed mitigations and links to evidence.",
+    "el": "Το Risk radar παρουσιάζει κινδύνους, προτεινόμενα μέτρα και συνδέσμους προς την τεκμηρίωση."
+  },
+  {
+    "title": "Πλάνο ενεργειών",
+    "frames": [
+      12,
+      13
+    ],
+    "en": "The action plan brings together next steps when these were extracted by the case analysis.",
+    "el": "Το πλάνο ενεργειών συγκεντρώνει τα επόμενα βήματα όταν έχουν εξαχθεί από την ανάλυση."
+  },
+  {
+    "title": "Κέντρο αποφάσεων",
+    "frames": [
+      14,
+      15
+    ],
+    "en": "The decision center organizes decisions and supporting evidence. The saved analysis may still contain incomplete results.",
+    "el": "Το Decision center οργανώνει αποφάσεις και τεκμηρίωση. Η παλιά αποθηκευμένη ανάλυση μπορεί να είναι ελλιπής."
+  },
+  {
+    "title": "Τεκμηρίωση",
+    "frames": [
+      16,
+      17
+    ],
+    "en": "The evidence view connects findings to the source. Always inspect the original page before relying on an answer.",
+    "el": "Η ενότητα Evidence συνδέει τα ευρήματα με την πηγή. Ελέγχουμε πάντα την αρχική σελίδα πριν βασιστούμε σε μια απάντηση."
+  },
+  {
+    "title": "Αναζήτηση",
+    "frames": [
+      38,
+      38
+    ],
+    "en": "Workspace search helps find documents from the library.",
+    "el": "Η αναζήτηση βοηθά να εντοπίσουμε έγγραφα στη βιβλιοθήκη."
+  },
+  {
+    "title": "Ρυθμίσεις λογαριασμού",
+    "frames": [
+      39,
+      39
+    ],
+    "en": "Account settings provide access to the profile. The navigation also includes file management and sign out.",
+    "el": "Οι ρυθμίσεις δίνουν πρόσβαση στο προφίλ. Η πλοήγηση περιλαμβάνει επίσης διαχείριση αρχείων και αποσύνδεση."
+  },
+  {
+    "title": "Ερώτηση AI 1",
+    "frames": [
+      18,
+      25
+    ],
+    "en": "We ask a real question about management review and final reconciliation. The answer correctly identifies June thirtieth and July fifteenth, and their respective owners. The automated evidence check was unavailable.",
+    "el": "Πραγματική ερώτηση για διοικητική επισκόπηση και τελική συμφωνία. Η απάντηση δίνει σωστά τις ημερομηνίες και τους υπεύθυνους. Ο αυτόματος έλεγχος δεν ήταν διαθέσιμος."
+  },
+  {
+    "title": "Ερώτηση AI 2",
+    "frames": [
+      26,
+      37
+    ],
+    "en": "A second real question asks for risks and actions. The answer finds all four risks, but incorrectly lists the finance director as a risk owner. The source names the research lead as owner and the director as approver. Human review remains essential.",
+    "el": "Η δεύτερη πραγματική ερώτηση βρίσκει τέσσερις κινδύνους, αλλά εμφανίζει λανθασμένα τον Finance Director ως συνυπεύθυνο. Στην πηγή εγκρίνει, ενώ υπεύθυνος είναι ο R&D Lead. Απαιτείται ανθρώπινος έλεγχος."
+  }
+]

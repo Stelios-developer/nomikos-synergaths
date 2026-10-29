@@ -1,5 +1,41 @@
 # Local validation record
 
+## Role and extraction follow-up, 2026-10-29
+
+The Greek live demo identified a real error: the answer listed a Finance
+Director as an owner where the synthetic policy names that role as approver.
+The model-based check incorrectly reported all four units as supported. The
+Greek video explicitly shows this historical failure.
+
+The answer prompt now distinguishes owners, approvers, reviewers and notified
+parties. The chat auditor splits on line boundaries, bounds the number of units,
+and sends positive role claims for manual source review instead of treating a
+model verdict as conclusive. A structured-output parser now rejects nested
+fragments of truncated JSON; the facts stage validates the expected arrays,
+retries malformed output once and blocks automatic approval if extraction needs
+review. These controls are conservative and do not prove model accuracy.
+
+Three real questions were run against two freshly indexed synthetic PDFs. The
+answers distinguished the owner and approver in the tax and project examples,
+and identified the two project risks and their stated mitigations. The model
+auditor still returned some negative verdicts for apparently supported claims;
+manual inspection remains necessary. A full rerun before the parser change
+returned zero facts, obligations and deadlines despite their presence in the
+source, while marking the case for review. It must not be treated as a successful
+extraction. Local token accounting is an estimate; provider billing is separate.
+
+One further full run after the JSON parser and schema change extracted six
+facts, ten obligations and six deadlines from the same synthetic source. Spot
+checks confirmed the 30 June and 15 July milestones and owners, but one risk
+mitigation proposed 25 and 28 June dates that do not occur in the source. The
+model audit nevertheless marked that run verified. The current release therefore
+withholds final actions when decisions, actions or mitigations have not all been
+audited; older verified cases are downgraded on read without overwriting stored
+data. It also no longer copies an unrelated deadline merely because two items
+share an owner. The final gate change was tested locally with mocked models; no
+third full paid run is claimed. This safeguard is deliberately conservative and
+does not establish that the remaining displayed findings are correct.
+
 ## OCR and retrieval follow-up, 2026-10-29
 
 Two subsequent real AI questions used a synthetic PDF. The milestone answer

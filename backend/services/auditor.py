@@ -25,6 +25,13 @@ import re
 from services.llm import complete
 
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+(?=[Α-ΩA-Z0-9])")
+_ROLE_CLAIM_RE = re.compile(
+    r"υπευθυν|υπεύθυν|αρμόδι|αρμοδι|εγκρίν|εγκριν|έγκρισ|εγκρισ|"
+    r"ανατίθε|ανατιθε|ελέγχ|ελεγχ|ενημερών|ενημερων|"
+    r"approv|responsib|accountab|\bowners?\b|assign|reviewer|notifi",
+    re.IGNORECASE,
+)
+_MAX_AUDIT_UNITS = 30
 
 
 def _split_sentences(answer: str) -> list[str]:
@@ -38,7 +45,7 @@ def _split_sentences(answer: str) -> list[str]:
     stripped = answer.strip()
     if not stripped:
         return []
-    parts = _SENTENCE_SPLIT_RE.split(stripped)
+    parts = [part for line in stripped.splitlines() for part in _SENTENCE_SPLIT_RE.split(line)]
     return [p.strip() for p in parts if p.strip()]
 
 
@@ -82,6 +89,13 @@ def audit_answer(answer: str, chunks: list[dict]) -> list[dict]:
             for s in sentences
         ]
 
+    # Bound provider output: never turn an incomplete verdict into a pass.
+    if len(sentences) > _MAX_AUDIT_UNITS:
+        return [
+            {"text": s, "supported": False, "reason": "Η απάντηση είναι πολύ μεγάλη για αυτόματο έλεγχο· ελέγξτε την πηγή.", "verification_unavailable": True}
+            for s in sentences
+        ]
+
     context = "\n\n".join(f"[{i + 1}] {c['text']}" for i, c in enumerate(chunks))
     numbered_sentences = "\n".join(f"{i + 1}. {s}" for i, s in enumerate(sentences))
     prompt = (
@@ -89,7 +103,9 @@ def audit_answer(answer: str, chunks: list[dict]) -> list[dict]:
         f"Απάντηση προς έλεγχο (ανά πρόταση):\n{numbered_sentences}\n\n"
         "Για ΚΑΘΕ πρόταση ξεχωριστά, έλεγξε αν τεκμηριώνεται από τα αποσπάσματα. Αγνόησε παραπομπές "
         "όπως [1], [2] μέσα στις προτάσεις — αυτές είναι μέρος της μορφοποίησης, όχι περιεχόμενο προς "
-        "έλεγχο. "
+        "έλεγχο. Μια πρόταση τεκμηριώνεται μόνο αν κάθε ισχυρισμός της υποστηρίζεται ρητά. "
+        "Διάκρινε υπεύθυνο, εγκρίνοντα, ελεγκτή και παραλήπτη ενημέρωσης: η έγκριση δεν σημαίνει "
+        "ευθύνη εκτέλεσης. Για ανακριβή ή μη ρητό ρόλο απάντησε false. "
         f"Απάντα ΜΟΝΟ με μία JSON λίστα με ΑΚΡΙΒΩΣ {len(sentences)} στοιχεία, στην ίδια σειρά με "
         'τις προτάσεις, της μορφής [{"supported": true, "reason": "σύντομη αιτιολόγηση"}, ...].'
     )
@@ -106,6 +122,8 @@ def audit_answer(answer: str, chunks: list[dict]) -> list[dict]:
         ]
 
     return [
-        {"text": s, "supported": v["supported"], "reason": v.get("reason", "")}
+        ({"text": s, "supported": False, "reason": "Ο ρόλος πρέπει να ελεγχθεί στην αρχική πηγή· η αυτόματη αξιολόγηση μπορεί να συγχέει υπεύθυνο και εγκρίνοντα.", "verification_unavailable": True}
+         if v["supported"] and _ROLE_CLAIM_RE.search(s)
+         else {"text": s, "supported": v["supported"], "reason": v.get("reason", "")})
         for s, v in zip(sentences, parsed)
     ]

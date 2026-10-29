@@ -6,7 +6,7 @@ import {
   type HistoryTurn,
   type SentenceVerdict,
 } from '../../api/client'
-import { renderAuditedRichText, renderRichText } from '../../utils/richText'
+import { renderRichText } from '../../utils/richText'
 import { BRAND_NAME } from '../../brand'
 
 interface Message {
@@ -271,13 +271,7 @@ export default function ChatInterface({
               </div>
               <div className="message-card">
                 {message.role === 'assistant'
-                  ? message.auditResult
-                    ? renderAuditedRichText(message.auditResult, {
-                        citations: message.citations,
-                        onHoverCitation,
-                        onViewCitation,
-                      })
-                    : renderRichText(message.content, {
+                  ? renderRichText(message.content, {
                         citations: message.citations,
                         onHoverCitation,
                         onViewCitation,
@@ -312,14 +306,14 @@ export default function ChatInterface({
                       </span>
                     ) : verificationUnavailable ? (
                       <span className="message-audit-pending">
-                        Evidence check unavailable · review manually
+                        {message.auditResult?.filter((sentence) => !sentence.supported).length} claims need source review · AI checks can be wrong
                       </span>
                     ) : message.auditResult ? (
                       <span
-                        className={`message-audit-result ${supportedCount === message.auditResult.length ? 'is-verified' : ''}`}
+                        className="message-audit-result"
                       >
                         AI evidence check: {supportedCount}/
-                        {message.auditResult.length} appear supported
+                        {message.auditResult.length} appear supported · review the source
                       </span>
                     ) : (
                       <span className="message-audit-pending">

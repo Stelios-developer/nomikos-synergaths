@@ -86,21 +86,23 @@ def _parse_json_object(text: str) -> dict:
     # Providers occasionally preface an otherwise valid object with a short
     # sentence. raw_decode lets us recover that object without relying on a
     # greedy regex (which can accidentally include prose after the JSON).
-    for match in re.finditer(r"\{", stripped):
-        try:
-            parsed, _ = decoder.raw_decode(stripped[match.start():])
-        except (json.JSONDecodeError, ValueError):
-            continue
-        if isinstance(parsed, dict):
-            return parsed
-    return {}
+    match = re.search(r"\{", stripped)
+    if not match:
+        return {}
+    try:
+        parsed, _ = decoder.raw_decode(stripped[match.start():])
+    except (json.JSONDecodeError, ValueError):
+        # A truncated outer object may contain valid nested objects. Never
+        # mistake one of those fragments for the complete provider response.
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
 
 
-def _json_completion(prompt: str, max_tokens: int = 1600) -> tuple[dict, str | None]:
+def _json_completion(prompt: str, max_tokens: int = 1600, required_lists: tuple[str, ...] = ()) -> tuple[dict, str | None]:
     try:
         first_response = complete(prompt, max_tokens=max_tokens)
         result = _parse_json_object(first_response)
-        if result:
+        if result and all(isinstance(result.get(key), list) for key in required_lists):
             return result, None
 
         # One focused retry is safer than silently accepting malformed output.
@@ -108,12 +110,12 @@ def _json_completion(prompt: str, max_tokens: int = 1600) -> tuple[dict, str | N
         # contract unambiguous for models that add prose or markdown by default.
         retry_prompt = (
             f"{prompt}\n\n"
-            "IMPORTANT RETRY: Your previous response could not be parsed. "
+            "IMPORTANT RETRY: Your previous response could not be parsed or did not match the required structure. "
             "Return exactly one valid JSON object and nothing else — no markdown, "
             "no explanation, and no text before or after the JSON."
         )
         result = _parse_json_object(complete(retry_prompt, max_tokens=max_tokens))
-        if result:
+        if result and all(isinstance(result.get(key), list) for key in required_lists):
             return result, None
 
         return {}, "The model did not return valid structured JSON after a retry."
@@ -379,8 +381,10 @@ Document profile: {json.dumps(case['document_profile'], ensure_ascii=False)}
 Evidence:
 {_evidence_context(evidence)}"""
     with traced_span("document_case.facts_obligations"):
-        raw, warning = _json_completion(prompt, max_tokens=2200)
+        raw, warning = _json_completion(prompt, max_tokens=3500, required_lists=("facts", "obligations", "deadlines", "open_questions"))
     result = _normalise_facts(raw, allowed)
+    if not warning and not any(result[key] for key in ("facts", "obligations", "deadlines")):
+        warning = "No cited facts, obligations or deadlines were extracted. Review the source; this does not establish that none exist."
     case.update(result)
     if warning:
         case["warnings"].append({"stage": "facts_obligations", "message": warning})
@@ -454,15 +458,13 @@ Evidence:
 
 def _draft_actions(case: dict) -> list[dict]:
     actions = []
-    deadline_by_owner = {deadline["owner"]: deadline for deadline in case["deadlines"] if deadline["owner"] != "Unassigned"}
     for index, obligation in enumerate(case["obligations"], start=1):
-        related_deadline = deadline_by_owner.get(obligation["owner"])
         actions.append({
             "id": f"A{index}",
             "title": obligation["action"],
             "priority": obligation["severity"],
             "suggested_owner": obligation["owner"],
-            "due_date": obligation["due_date"] or (related_deadline["date"] if related_deadline else None),
+            "due_date": obligation["due_date"],
             "source_obligation_id": obligation["id"],
             "approval_required": True,
             "citation_ids": obligation["citation_ids"],
@@ -636,6 +638,16 @@ def run_mandatory_audit(case_id: str, workspace_id: str) -> dict:
     _require_stage(case, "draft_complete")
     with traced_span("document_case.mandatory_audit"):
         audit = _strict_audit(case["draft_action_pack"].get("audit_claims", []), case["citations"])
+    draft = case["draft_action_pack"]
+    # The current auditor covers summaries, facts, deadlines and risk rationale,
+    # not every decision, action owner or mitigation. A passing subset cannot
+    # certify the whole pack. Keep it behind the human-review gate.
+    if draft.get("decisions_required") or draft.get("action_items") or any(risk.get("mitigation") for risk in draft.get("risk_register", [])):
+        audit["passed"] = False
+        audit["reason"] = "Some decisions, actions or mitigations have not been independently checked and require human review."
+    if any(item.get("stage") == "facts_obligations" for item in case.get("warnings", [])):
+        audit["passed"] = False
+        audit["reason"] = "Facts and deadlines extraction needs human review."
     case["audit"] = audit
     return _save(case, "audited", "verified" if audit["passed"] else "needs_human_review")
 
@@ -682,8 +694,27 @@ def finalize_case(case_id: str, workspace_id: str) -> dict:
 
 
 def public_case(case: dict) -> dict:
-    """Return the full auditable case payload without internal database fields."""
-    return case
+    """Apply the current evidence gate to old cases without rewriting them."""
+    draft = case.get("draft_action_pack") or {}
+    final = case.get("final_action_pack") or {}
+    incomplete = (draft.get("decisions_required") or draft.get("action_items")
+                  or any(risk.get("mitigation") for risk in draft.get("risk_register", []))
+                  or any(item.get("stage") == "facts_obligations" for item in case.get("warnings", [])))
+    if not incomplete or final.get("verification_status") != "verified":
+        return case
+    audit = {**(case.get("audit") or {}), "passed": False,
+             "reason": "Some findings or proposed actions require human source review."}
+    return {
+        **case,
+        "status": "needs_human_review",
+        "audit": audit,
+        "final_action_pack": {
+            **final, "verification_status": "needs_human_review",
+            "decisions_required": [], "action_items": [], "deadline_calendar": [],
+            "risk_register": [], "human_review_required": True,
+            "next_step": "Review the source and proposed actions before relying on this case.",
+        },
+    }
 
 
 def _stage_completed(case, target):

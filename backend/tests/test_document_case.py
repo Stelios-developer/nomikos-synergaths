@@ -110,21 +110,43 @@ def _run_happy_path() -> dict:
     return document_case.finalize_case(case["case_id"], "workspace-a")
 
 
-def test_case_pipeline_creates_verified_human_review_action_pack():
+def test_case_pipeline_withholds_pack_when_some_fields_are_not_audited():
     with patch("services.document_case._load_document_chunks", return_value=DOCUMENT_CHUNKS), \
          patch("services.document_case.pdf_path", return_value=None), \
          patch("services.document_case.complete", side_effect=_llm_response):
         case = _run_happy_path()
 
     assert case["stage"] == "finalized"
-    assert case["status"] == "ready_for_human_review"
+    assert case["status"] == "needs_human_review"
     assert case["document_profile"]["document_type"] == "contract"
     assert case["deadlines"][0]["date"] == "2026-10-15"
     assert case["risks"][0]["level"] == "high"
-    assert case["audit"]["passed"] is True
-    assert case["final_action_pack"]["verification_status"] == "verified"
-    assert case["final_action_pack"]["action_items"][0]["approval_required"] is True
+    assert case["audit"]["passed"] is False
+    assert case["final_action_pack"]["verification_status"] == "needs_human_review"
+    assert case["final_action_pack"]["action_items"] == []
     assert case["final_action_pack"]["human_review_required"] is True
+
+
+def test_action_does_not_inherit_an_unrelated_deadline_from_same_owner():
+    case = {
+        "deadlines": [{"owner": "Finance", "date": "2026-10-15"}],
+        "obligations": [{"id": "O1", "owner": "Finance", "action": "Review receipts", "severity": "high", "due_date": None, "citation_ids": ["C1"]}],
+    }
+    assert document_case._draft_actions(case)[0]["due_date"] is None
+
+
+def test_old_verified_case_is_rechecked_without_modifying_stored_case():
+    old = {
+        "status": "ready_for_human_review",
+        "draft_action_pack": {"action_items": [{"title": "Take action"}]},
+        "audit": {"passed": True},
+        "final_action_pack": {"verification_status": "verified", "action_items": [{"title": "Take action"}]},
+    }
+    result = document_case.public_case(old)
+    assert result["status"] == "needs_human_review"
+    assert result["final_action_pack"]["action_items"] == []
+    assert old["audit"]["passed"] is True
+    assert old["final_action_pack"]["verification_status"] == "verified"
 
 
 def test_case_blocks_final_action_pack_when_the_auditor_is_unavailable():
@@ -160,6 +182,36 @@ def test_json_completion_recovers_a_valid_object_after_a_format_retry():
 
 def test_json_parser_accepts_a_json_object_wrapped_in_provider_prose():
     assert document_case._parse_json_object('Result follows: {"status": "ok"}\nThank you.') == {"status": "ok"}
+
+
+def test_json_parser_does_not_accept_nested_fragment_of_truncated_object():
+    assert document_case._parse_json_object('{"facts": [{"statement": "partial"}') == {}
+
+
+def test_json_completion_retries_when_required_sections_are_missing():
+    complete_response = '{"facts": [], "obligations": [], "deadlines": [], "open_questions": []}'
+    with patch("services.document_case.complete", side_effect=['{"statement": "partial"}', complete_response]) as complete:
+        result, warning = document_case._json_completion("Extract facts", required_lists=("facts", "obligations", "deadlines", "open_questions"))
+    assert warning is None
+    assert result["facts"] == []
+    assert complete.call_count == 2
+
+
+def test_extraction_warning_blocks_a_passing_auditor():
+    case = {
+        "stage": "draft_complete",
+        "draft_action_pack": {"audit_claims": []},
+        "citations": [],
+        "warnings": [{"stage": "facts_obligations", "message": "Extraction incomplete"}],
+    }
+    audit = {"passed": True, "reason": "All claims were supported."}
+    with patch.object(document_case, "_get_case", return_value=case), \
+         patch.object(document_case, "_strict_audit", return_value=audit), \
+         patch.object(document_case, "_save", side_effect=lambda c, stage, status: (c, stage, status)):
+        result, stage, status = document_case.run_mandatory_audit("case", "workspace")
+    assert result["audit"]["passed"] is False
+    assert stage == "audited"
+    assert status == "needs_human_review"
 
 
 def test_case_stages_are_ordered_and_workspace_scoped():

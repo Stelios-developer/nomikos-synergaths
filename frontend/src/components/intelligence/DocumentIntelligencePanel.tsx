@@ -781,7 +781,7 @@ export default function DocumentIntelligencePanel({
             >
               {obligations.length === 0 && deadlines.length === 0 ? (
                 <p className="case-empty-copy">
-                  No explicit obligations or deadlines were found.
+                  No obligations or deadlines were extracted. Review the source; this does not establish that none exist.
                 </p>
               ) : (
                 <>

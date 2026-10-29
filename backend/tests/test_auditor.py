@@ -14,6 +14,37 @@ def test_split_sentences_empty_on_blank_input():
     assert auditor._split_sentences("   ") == []
 
 
+def test_split_bullets_into_individual_claims():
+    assert auditor._split_sentences("Risks:\n- Late filing\n- Missing evidence") == [
+        "Risks:", "- Late filing", "- Missing evidence"
+    ]
+
+
+def test_role_claim_never_receives_an_unqualified_pass():
+    answer = "Υπεύθυνος: R&D Lead και Finance Director"
+    chunks = [{"text": "Owner: R&D Lead. Approval: Finance Director."}]
+    with patch.object(auditor, "complete", return_value='[{"supported": true, "reason": "matches"}]'):
+        result = auditor.audit_answer(answer, chunks)
+    assert result[0]["supported"] is False
+    assert result[0]["verification_unavailable"] is True
+    assert "πηγή" in result[0]["reason"]
+
+
+def test_unsupported_role_remains_unsupported():
+    with patch.object(auditor, "complete", return_value='[{"supported": false, "reason": "owner differs"}]'):
+        result = auditor.audit_answer("Owner: Finance Director", CHUNKS)
+    assert result[0]["supported"] is False
+    assert "verification_unavailable" not in result[0]
+
+
+def test_too_many_claims_fail_closed_without_provider_call():
+    with patch.object(auditor, "complete") as complete:
+        result = auditor.audit_answer("\n".join(f"Claim {i}" for i in range(31)), CHUNKS)
+    assert len(result) == 31
+    assert all(item["verification_unavailable"] for item in result)
+    complete.assert_not_called()
+
+
 def test_audit_answer_returns_empty_list_for_blank_answer():
     assert auditor.audit_answer("", CHUNKS) == []
 
