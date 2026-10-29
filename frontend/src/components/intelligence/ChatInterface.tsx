@@ -43,6 +43,11 @@ const QUICK_PROMPTS = [
   },
 ]
 
+const DEMO_PROMPTS = [
+  { label: 'Deadlines', detail: 'Recorded AI answer', prompt: 'What are the main deadlines, and who is responsible for each?' },
+  { label: 'Risks & approvals', detail: 'Recorded AI answer', prompt: 'What risks and approval requirements are stated in the agreement?' },
+]
+
 export default function ChatInterface({
   documentFilter,
   onCitations,
@@ -227,7 +232,7 @@ export default function ChatInterface({
               citation to inspect the original page.
             </p>
             <div className="quick-prompt-grid">
-              {QUICK_PROMPTS.map((prompt) => (
+              {(import.meta.env.VITE_DEMO_MODE === 'true' ? DEMO_PROMPTS : QUICK_PROMPTS).map((prompt) => (
                 <button
                   key={prompt.label}
                   type="button"

@@ -1,0 +1,62 @@
+1
+00:00:00,000 --> 00:00:14,832
+Welcome to Nomikos Synergathis. This is a new recording of the
+real local application, using a synthetic tax policy and a
+dedicated demo account. Two questions will be sent to the
+configured AI provider.
+
+2
+00:00:14,832 --> 00:00:30,409
+We open a previously analyzed three-page document. The overview
+presents the findings, document profile, evidence quality, and a
+human-review warning. This is a real saved case, not a populated
+visual mockup.
+
+3
+00:00:30,409 --> 00:00:45,305
+The facts and obligations section is empty in this particular
+saved analysis. The original document does contain requirements,
+so these zero counts expose an extraction issue rather than
+proving that no obligations exist.
+
+4
+00:00:45,305 --> 00:00:58,077
+The timeline also shows the available extracted dates. In this
+case the saved analysis has not extracted calendar dates, another
+limitation to review against the original document.
+
+5
+00:00:58,077 --> 00:01:13,059
+Risk radar contains five findings with suggested mitigations and
+links to cited excerpts. These are model-assisted findings and
+require human checking, especially because optical character
+recognition may introduce errors.
+
+6
+00:01:13,059 --> 00:01:26,066
+The action plan and decision center are also part of the
+workspace. This saved case has zero extracted actions and
+decisions; the demo shows those empty states rather than
+inventing results.
+
+7
+00:01:26,066 --> 00:01:38,463
+The evidence view links claims to source fragments and flags
+material that needs review. A citation or an automated label is
+not proof: the reader must inspect the original page.
+
+8
+00:01:38,463 --> 00:01:58,589
+First we ask the document assistant for deadlines and owners.
+This is a real streamed AI answer with page citations. The
+automatic evidence check was unavailable. The OCR also reports
+July sixteen where the original document says July fifteen,
+showing why source review matters.
+
+9
+00:01:58,589 --> 00:02:17,615
+Next we ask about risks and proposed actions. The retrieved
+excerpt did not contain the relevant details, so the answer
+missed information present elsewhere in the document. This
+reveals a retrieval limitation. Both questions used synthetic
+data and real provider calls.

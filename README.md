@@ -2,7 +2,7 @@
 
 <p align="center"><strong>Understand the document. Trace the evidence. Keep people in control.</strong><br />PDF analysis · facts and deadlines · risk review · cited answers</p>
 
-<p align="center"><a href="docs/DEMO.md">Interactive demo</a> · <a href="docs/demo/README.md">Narrated product demo</a> · <a href="#the-product">Product</a> · <a href="#architecture">Architecture</a> · <a href="#run-locally">Run locally</a> · <a href="#verification-and-release-status">Verification</a> · <a href="docs/README.el.md">Ελληνικά</a></p>
+<p align="center"><a href="docs/DEMO.md">Interactive demo</a> · <a href="docs/live-demo/README.md">Real application walkthrough</a> · <a href="#the-product">Product</a> · <a href="#architecture">Architecture</a> · <a href="#run-locally">Run locally</a> · <a href="#verification-and-release-status">Verification</a> · <a href="docs/README.el.md">Ελληνικά</a></p>
 
 <p align="center">
 <img alt="Python" src="https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white" />
@@ -28,7 +28,7 @@ This is an investigative aid, not a substitute for legal advice or professional 
 
 <p align="center"><img src="docs/assets/demo-overview.jpg" width="100%" alt="Interactive demo overview with synthetic document findings" /></p>
 
-*The image and [narrated walkthrough](docs/demo/README.md) use synthetic demo data, not a real account or an AI run. The walkthrough uses screenshots of the interactive demo, with English narration and Greek subtitles available.*
+*The image uses synthetic demo data. The [local application walkthrough](docs/live-demo/README.md) shows two real AI questions on a synthetic PDF, including observed OCR and retrieval limitations. The earlier [isolated mock demo](docs/demo/README.md) is also available.*
 
 ## What to inspect in the code
 
@@ -72,15 +72,14 @@ The application submits a document workflow through n8n, persists case stages an
 
 ## Interactive demo
 
-Explore the real interface with a synthetic document and fixed example answers:
+Explore the real interface with a synthetic document and two previously recorded AI answers:
 
 ```sh
 npm --prefix frontend ci
 npm --prefix frontend run demo
 ```
 
-Open http://127.0.0.1:5198 and select the sample document. No real accounts,
-PDFs or AI provider are involved. See [demo scope and limitations](docs/DEMO.md).
+Open http://127.0.0.1:5198 and select the sample document. No real accounts, PDFs or live AI provider calls are involved. The answers were recorded from synthetic excerpts and are not independently verified. See [demo scope and limitations](docs/DEMO.md).
 
 ## Run locally
 

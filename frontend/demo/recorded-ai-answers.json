@@ -1,0 +1,20 @@
+{
+  "provider": "Anthropic",
+  "model": "claude-haiku-4-5-20251001",
+  "scope": "Two model responses to synthetic fixture excerpts, captured once; not a live end-to-end application or retrieval test.",
+  "source_excerpts": "[1] (Project delivery agreement.pdf, page 2) The supplier shall deliver the first release by 15 October 2026. The delivery owner is the project manager. The agreed project budget is EUR 48,000.\n[2] (Project delivery agreement.pdf, page 4) Acceptance testing must be completed by 28 October 2026. The product owner must approve the acceptance report before release.\n[3] (Project delivery agreement.pdf, page 6) A delay beyond the agreed delivery date may trigger a contractual penalty. A revised schedule requires written approval from both parties.",
+  "answers": [
+    {
+      "question": "What are the main deadlines, and who is responsible for each?",
+      "answer": "# Main Deadlines and Responsibilities\n\nBased on the supplied excerpts, the following deadlines and responsibilities are identified:\n\n**First Release Delivery: 15 October 2026**\n- Responsible party: The supplier [1]\n- Oversight: The project manager (delivery owner) [1]\n\n**Acceptance Testing Completion: 28 October 2026**\n- Responsible party: The excerpts do not specify who must complete the acceptance testing\n- Approval requirement: The product owner must approve the acceptance report before release [2]\n\n**Additional Considerations:**\n- Any delay beyond the agreed delivery date may trigger a contractual penalty [3]\n- Changes to the schedule require written approval from both parties [3]",
+      "input_tokens": 197,
+      "output_tokens": 161
+    },
+    {
+      "question": "What risks and approval requirements are stated in the agreement?",
+      "answer": "# Risks and Approval Requirements\n\n## Approval Requirements\n\nThe agreement specifies the following approval requirements:\n\n- **Product Owner Approval**: \"The product owner must approve the acceptance report before release\" [2]\n- **Revised Schedule Approval**: \"A revised schedule requires written approval from both parties\" [3]\n\n## Risks\n\nThe agreement identifies one risk:\n\n- **Contractual Penalty for Delays**: \"A delay beyond the agreed delivery date may trigger a contractual penalty\" [3]\n\nThe excerpts do not contain details about other potential risks, risk mitigation strategies, or the specific amount of any contractual penalty.",
+      "input_tokens": 194,
+      "output_tokens": 140
+    }
+  ]
+}
