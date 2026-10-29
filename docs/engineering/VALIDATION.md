@@ -1,5 +1,36 @@
 # Local validation record
 
+## Pre-publication review, 2026-10-29
+
+The installed backend environment and the previous locked version contained
+`langgraph` 1.2.10, which is in the affected range of
+[GHSA-3fx2-cqw9-xr3c](https://github.com/advisories/GHSA-3fx2-cqw9-xr3c).
+The advisory concerns RemoteGraph v3 streaming with attacker-controlled
+identifiers and an affected SDK; an exploitable path in this application has
+not been established. The reviewed lock now pins `langgraph` 1.2.14 and
+`langgraph-sdk` 0.4.6. The patched package was hash-verified and tested in an
+isolated overlay, not installed into the running local backend. An OSV check of
+the projected 160-package inventory reported no findings; it is not a scan of
+the running environment or proof of security.
+
+Local verification included 284 backend tests with the patched version, 29
+frontend and six auth unit tests, 39 PostgreSQL isolation/job tests, real
+Better Auth signed-cookie and revocation checks in a disposable database,
+and 133 synthetic UI assertions per Chromium, Firefox and WebKit. These are
+local checks, not a successful hosted GitHub Actions run. The latest hosted
+jobs did not start and GitHub reported a billing or spending-limit restriction.
+No billing limit was raised. Automated accessibility scans do not replace
+manual review.
+
+The locally built backend, auth and PDF images were scanned against the
+updated Trivy vulnerability database: each image gate reported zero advisory
+records. Isolated runtime checks passed for all three images; the PDF image
+test used synthetic Greek and English text. These image tests do not establish
+hosted production configuration, current malware-signature operation or
+provider deployment readiness. Automated pattern and Trivy secret scans found
+no matches in historical text blobs; media review and OCR sampling are limited
+and cannot prove that no private data is present.
+
 ## Role and extraction follow-up, 2026-10-29
 
 The Greek live demo identified a real error: the answer listed a Finance
