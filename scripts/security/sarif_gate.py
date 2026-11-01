@@ -1,5 +1,6 @@
 """Fail-closed SARIF policy adapted from Padel. No source snippets exported."""
 import json
+import re
 from pathlib import Path
 import sys
 
@@ -25,7 +26,18 @@ def evaluate(report):
             if not 0 <= score <= 10:
                 raise ValueError("Invalid security severity")
             level = result.get("level", rule.get("defaultConfiguration", {}).get("level", "warning"))
-            findings.append({"id": result["ruleId"], "level": level, "security_severity": score, "blocks": score >= 7 or level == "error"})
+            finding = {"id": result["ruleId"], "level": level, "security_severity": score, "blocks": score >= 7 or level == "error"}
+            # Report only a validated repository-relative path and line, never SARIF text or snippets.
+            for location in result.get("locations", []):
+                physical = location.get("physicalLocation", {})
+                uri = physical.get("artifactLocation", {}).get("uri", "")
+                line = physical.get("region", {}).get("startLine")
+                if (isinstance(uri, str) and re.fullmatch(r"[A-Za-z0-9_./-]+", uri)
+                        and not uri.startswith("/") and ".." not in uri.split("/")
+                        and type(line) is int and line > 0):
+                    finding["location"] = {"path": uri, "line": line}
+                    break
+            findings.append(finding)
     return {"schema_version": 1, "gate": "FAILED" if any(item["blocks"] for item in findings) else "PASSED", "findings": findings}
 
 

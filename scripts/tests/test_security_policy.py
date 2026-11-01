@@ -77,6 +77,16 @@ class SecurityPolicyTests(unittest.TestCase):
         self.assertEqual(result['gate'], 'FAILED')
         self.assertNotIn('private source snippet', str(result))
 
+    def test_sarif_location_excludes_snippets_and_external_paths(self):
+        report = self.report()
+        finding = report['runs'][0]['results'][0]
+        finding['locations'] = [{'physicalLocation': {'artifactLocation': {'uri': 'backend/app.py'}, 'region': {'startLine': 42, 'snippet': {'text': 'secret'}}}}]
+        result = sarif.evaluate(report)['findings'][0]
+        self.assertEqual(result['location'], {'path': 'backend/app.py', 'line': 42})
+        self.assertNotIn('secret', str(result))
+        finding['locations'][0]['physicalLocation']['artifactLocation']['uri'] = '../private'
+        self.assertNotIn('location', sarif.evaluate(report)['findings'][0])
+
     def test_lower_findings_are_not_hidden(self):
         result = sarif.evaluate(self.report('4.0'))
         self.assertEqual(result['gate'], 'PASSED')
