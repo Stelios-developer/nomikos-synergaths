@@ -24,7 +24,7 @@ import re
 
 from services.llm import complete
 
-_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+(?=[Α-ΩA-Z0-9])")
+_SENTENCE_BOUNDARY_RE = re.compile(r"[.!?]\s+")
 _ROLE_CLAIM_RE = re.compile(
     r"υπευθυν|υπεύθυν|αρμόδι|αρμοδι|εγκρίν|εγκριν|έγκρισ|εγκρισ|"
     r"ανατίθε|ανατιθε|ελέγχ|ελεγχ|ενημερών|ενημερων|"
@@ -45,8 +45,16 @@ def _split_sentences(answer: str) -> list[str]:
     stripped = answer.strip()
     if not stripped:
         return []
-    parts = [part for line in stripped.splitlines() for part in _SENTENCE_SPLIT_RE.split(line)]
-    return [p.strip() for p in parts if p.strip()]
+    parts = []
+    for line in stripped.splitlines():
+        start = 0
+        for match in _SENTENCE_BOUNDARY_RE.finditer(line):
+            end = match.end()
+            if end < len(line) and ("Α" <= line[end] <= "Ω" or "A" <= line[end] <= "Z" or "0" <= line[end] <= "9"):
+                parts.append(line[start:match.start() + 1].strip())
+                start = end
+        parts.append(line[start:].strip())
+    return [part for part in parts if part]
 
 
 def _extract_verdict_list(response: str, expected_length: int) -> list[dict] | None:

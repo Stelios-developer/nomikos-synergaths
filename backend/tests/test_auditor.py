@@ -20,6 +20,11 @@ def test_split_bullets_into_individual_claims():
     ]
 
 
+def test_sentence_boundaries_handle_long_whitespace_and_lowercase():
+    assert auditor._split_sentences('First.   next sentence.   Next') == ['First.   next sentence.', 'Next']
+    assert auditor._split_sentences('Start.' + ' ' * 100_000 + 'next') == ['Start.' + ' ' * 100_000 + 'next']
+
+
 def test_role_claim_never_receives_an_unqualified_pass():
     answer = "Υπεύθυνος: R&D Lead και Finance Director"
     chunks = [{"text": "Owner: R&D Lead. Approval: Finance Director."}]

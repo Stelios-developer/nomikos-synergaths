@@ -57,7 +57,8 @@ class IndexSafetyTests(unittest.TestCase):
         secret = b"fixture-only-" * 4
         status, output, _ = self.run_check(b"100644 abc 0\tREADME.md\0", {"abc": secret}, [("BETTER_AUTH_SECRET", secret)])
         self.assertEqual(status, 1)
-        self.assertIn("BETTER_AUTH_SECRET", output)
+        self.assertIn("configured secret match", output)
+        self.assertNotIn("BETTER_AUTH_SECRET", output)
         self.assertNotIn(secret.decode(), output)
 
     def test_recognizable_provider_token_is_blocked(self):

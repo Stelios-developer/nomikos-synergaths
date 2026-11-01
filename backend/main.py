@@ -1,6 +1,9 @@
 import os
+import ipaddress
+import re
 import time
 from contextlib import asynccontextmanager
+from urllib.parse import urlsplit
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Request
@@ -34,6 +37,30 @@ configure_logging()
 configure_tracing()
 
 
+def _production_hostname(value: str) -> bool:
+    """Validate an explicit host, not a URL or wildcard pattern."""
+    host = value.lower().rstrip('.')
+    if not host or len(host) > 253 or host == 'localhost' or host.endswith('.localhost'):
+        return False
+    if host == 'example.com' or host.endswith('.example.com'):
+        return False
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return all(re.fullmatch(r'[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?', label) for label in host.split('.'))
+    return not (address.is_loopback or address.is_unspecified or address.is_link_local)
+
+
+def _production_origin(value: str) -> bool:
+    try:
+        parsed = urlsplit(value)
+        return bool(parsed.scheme == 'https' and parsed.hostname and _production_hostname(parsed.hostname)
+                    and parsed.username is None and parsed.password is None and not parsed.path
+                    and not parsed.query and not parsed.fragment and (parsed.port is None or 1 <= parsed.port <= 65535))
+    except ValueError:
+        return False
+
+
 def _validate_production_configuration() -> None:
     if not is_production():
         return
@@ -46,10 +73,10 @@ def _validate_production_configuration() -> None:
     if os.getenv("REQUIRE_VERIFIED_EMAIL", "true").lower() != "true":
         raise RuntimeError("REQUIRE_VERIFIED_EMAIL=true is mandatory in production.")
     origins = [value.strip() for value in os.getenv("ALLOWED_ORIGINS", "").split(",") if value.strip()]
-    if not origins or any(not value.startswith("https://") or "*" in value or "example.com" in value for value in origins):
+    if not origins or any(not _production_origin(value) for value in origins):
         raise RuntimeError("ALLOWED_ORIGINS must list real HTTPS frontend origins in production.")
     hosts = [value.strip() for value in os.getenv("ALLOWED_HOSTS", "").split(",") if value.strip()]
-    if not hosts or any(value in {"*", "localhost", "127.0.0.1"} or "example.com" in value for value in hosts):
+    if not hosts or any(not _production_hostname(value) for value in hosts):
         raise RuntimeError("ALLOWED_HOSTS must list real API hostnames in production.")
     if not os.getenv("N8N_WEBHOOK_API_KEY"):
         raise RuntimeError("N8N_WEBHOOK_API_KEY is mandatory in production.")

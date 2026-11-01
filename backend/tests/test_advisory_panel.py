@@ -82,5 +82,6 @@ def test_run_panel_stream_survives_one_advisor_failing():
     advisor_events = [payload for kind, payload in events if kind == "advisor"]
     by_id = {e["id"]: e for e in advisor_events}
     assert len(by_id) == 3  # a failing advisor still yields an event, not a crash
-    assert "upstream LLM error" in by_id["conservative"]["answer"]
+    assert "upstream LLM error" not in str(events)
+    assert "δεν ήταν διαθέσιμος" in by_id["conservative"]["answer"]
     assert events[-1][0] == "done"

@@ -76,9 +76,9 @@ def main() -> int:
         for label, pattern in TOKEN_PATTERNS.items():
             if re.search(pattern, data):
                 findings.append((path, label))
-        for key, value in secrets:
+        for _key, value in secrets:
             if value in data:
-                findings.append((path, "configured secret match: " + key))
+                findings.append((path, "configured secret match"))
     for path, reason in sorted(set(findings)):
         print(f"BLOCK: {path}: {reason}")
     print(f"Checked {len(entries)} indexed entries; {len(set(findings))} findings. Secret values were not printed.")

@@ -122,8 +122,9 @@ def run_panel_stream(
             advisor = future_to_advisor[future]
             try:
                 answer = future.result()
-            except Exception as exc:
-                answer = f"(Ο σύμβουλος απέτυχε: {exc})"
+            except Exception:
+                # Provider exceptions can contain credentials, source text or internal details.
+                answer = "(Ο σύμβουλος δεν ήταν διαθέσιμος.)"
             results[advisor["id"]] = answer
             yield ("advisor", {
                 "id": advisor["id"],
