@@ -6,6 +6,8 @@ on:
     - cron: "23 5 * * 1"
 permissions:
   contents: read
+  actions: read
+  security-events: read
 jobs:
   image-audit:
     runs-on: ubuntu-latest
