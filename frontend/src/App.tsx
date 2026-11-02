@@ -20,6 +20,7 @@ import {
   type UploadResult,
 } from './api/client'
 import { authClient } from './auth/client'
+import { waitForSignedOutSession } from './auth/session-transition'
 
 type SectionId = CaseWorkspaceView | 'ask'
 const SECTIONS: { id: SectionId; label: string; detail: string }[] = [
@@ -194,6 +195,7 @@ export default function App() {
         throw new Error(
           result.error.message || 'Could not sign out. Please try again.',
         )
+      await waitForSignedOutSession(authClient.$store.atoms.session)
       window.location.assign('/')
     } catch (error) {
       setAccountError(
