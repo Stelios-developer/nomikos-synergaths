@@ -43,7 +43,7 @@ jobs:
           .tools/trivy/trivy image --quiet --scanners vuln --format json --output output/security/image.json dmc-ci:${{ strategy.job-index }}
           .tools/trivy/trivy image --quiet --format cyclonedx --output output/security/image.cdx.json dmc-ci:${{ strategy.job-index }}
           python scripts/security/image_gate.py output/security/image.json output/security/image.gate.json
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: image-security-${{ strategy.job-index }}
@@ -72,7 +72,7 @@ jobs:
           npm sbom --sbom-format cyclonedx > ../output/security/${{ matrix.directory }}.cdx.json
       - run: npm audit --audit-level=high
         working-directory: ${{ matrix.directory }}
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: npm-inventory-${{ matrix.directory }}
@@ -97,7 +97,7 @@ jobs:
           ${{ matrix.directory }}/.venv/bin/python -m pip install --require-hashes --only-binary=:all: -r ${{ matrix.directory }}/requirements-linux-py312.lock
       - name: Explicitly approved project-only OSV audit; no suppression
         run: ${{ matrix.directory }}/.venv/bin/python scripts/security/audit_python.py --allow-osv
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: python-security-${{ strategy.job-index }}
@@ -133,7 +133,7 @@ jobs:
             python scripts/security/sarif_gate.py "$report" "output/security/codeql-${{ matrix.language }}.gate.json"
           done
           [ "$found" -eq 1 ]
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: static-security-${{ matrix.language }}
