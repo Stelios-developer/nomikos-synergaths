@@ -69,6 +69,7 @@ Firefox and WebKit. Start a dedicated Vite server in one terminal:
 
 ~~~powershell
 cd frontend
+$env:DMC_AUTH_PROXY_TARGET='http://127.0.0.1:5199'
 npm run dev -- --host 127.0.0.1 --port 5197 --strictPort
 ~~~
 
@@ -76,6 +77,7 @@ Then, from the repository root:
 
 ~~~powershell
 $env:UI_TEST_URL='http://127.0.0.1:5197'
+$env:DMC_AUTH_PROXY_TARGET='http://127.0.0.1:5199'
 $env:UI_TEST_BROWSER='chrome'
 npm run test:ui
 ~~~
@@ -84,8 +86,8 @@ npm run test:ui
 selects an installed Chromium channel. The root command requires an isolated
 loopback URL and refuses port 5173.
 
-The test intercepts all API requests with synthetic .test account/document
-fixtures, blocks external requests and writes screenshots to ignored
+The test uses synthetic .test account/document fixtures, with a loopback-only
+auth server verified by a random probe, blocks external requests and writes screenshots to ignored
 output/engineering-ui/<engine>/. It exercises all tabs, responsive overflow, sticky
 headers, the calendar, keyboard dialog navigation, settings submission,
 search, source previews, conversation continuity, deletion, upload validation,

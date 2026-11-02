@@ -44,6 +44,7 @@ double for vector storage. [Migration and restore evidence](engineering/SECURE_S
 Start a dedicated frontend in one terminal:
 
 ```powershell
+$env:DMC_AUTH_PROXY_TARGET='http://127.0.0.1:5199'
 npm --prefix frontend run dev -- --host 127.0.0.1 --port 5197 --strictPort
 ```
 
@@ -51,6 +52,7 @@ In another terminal from the repository root:
 
 ```powershell
 $env:UI_TEST_URL='http://127.0.0.1:5197'
+$env:DMC_AUTH_PROXY_TARGET='http://127.0.0.1:5199'
 $env:UI_TEST_ENGINE='chromium' # also firefox or webkit
 $env:UI_TEST_BROWSER='chrome' # optional Chromium channel; omit for bundled browsers
 npm run test:ui
@@ -58,8 +60,9 @@ npm run test:ui
 
 Install the matching bundled browsers from `frontend/` with
 `npx --no-install playwright install` if needed. When testing Firefox or
-WebKit, unset `UI_TEST_BROWSER`. API/auth requests are intercepted with synthetic
-fixtures; external requests are blocked. The command refuses the real local
+WebKit, unset `UI_TEST_BROWSER`. API requests use synthetic fixtures; auth runs
+through a loopback-only fixture server on port 5199. A random probe prevents tests
+from running against a real auth service. External requests are blocked. The command refuses the real local
 workspace port 5173. Screenshots and accessibility JSON go to ignored
 `output/engineering-ui/<engine>/`. Inspect axe `incomplete` entries manually.
 
