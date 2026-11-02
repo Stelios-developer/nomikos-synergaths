@@ -60,7 +60,18 @@ const context = await browser.newContext({
   reducedMotion: 'reduce',
 })
 const page = await context.newPage()
-page.on('pageerror', (error) => errors.push(error.message))
+page.on('pageerror', (error) => {
+  errors.push(error.message)
+  console.error('Browser runtime error:', error.name, error.message, error.stack)
+})
+page.on('request', (request) => {
+  if (request.url().startsWith(new URL('/api/auth/', base).href))
+    console.log('Synthetic auth request:', request.method(), new URL(request.url()).pathname)
+})
+page.on('requestfailed', (request) => {
+  if (request.url().startsWith(new URL('/api/auth/', base).href))
+    console.error('Synthetic auth request failed:', request.method(), new URL(request.url()).pathname, request.failure()?.errorText)
+})
 await page.route('**/*', async (route) => {
   const request = route.request(),
     url = new URL(request.url()),
