@@ -499,7 +499,9 @@ try {
     (await page.locator('.review-badge').count()) === 0,
     'No review notice when evidence passes',
   )
+  const logoutNavigation = page.waitForEvent('framenavigated', { predicate: frame => frame === page.mainFrame(), timeout: 10_000 })
   await page.getByRole('button', { name: 'Sign out', exact: true }).click()
+  await logoutNavigation
   await page
     .getByRole('button', { name: 'Enter private workspace', exact: true })
     .waitFor()
