@@ -1,12 +1,10 @@
 import assert from 'node:assert/strict'
-import { createServer } from 'node:http'
-import { randomUUID } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { filename, documentCase, session } from './fixtures/workspace.mjs'
 
 // Start Vite first. Uses Playwright from node_modules or the QA runtime's NODE_PATH.
-// API requests are isolated fixtures. This is not a live auth/security test.
+// Every API request is intercepted. This is a UI regression suite, not a live auth/security test.
 const require = createRequire(import.meta.url)
 const engines = require('playwright')
 const AxeBuilder = require('@axe-core/playwright').default
@@ -57,46 +55,6 @@ let activityJobs = []
 let lastResultJobId = null
 let activityResolutions = 0
 const errors = []
-// Serve the synthetic auth responses over the Vite proxy instead of fulfilling
-// browser routes. WebKit can reject intercepted credentialed fetches before the
-// route handler runs. A random probe fails closed if Vite targets a real service.
-const authTarget = 'http://127.0.0.1:5199'
-if (process.env.DMC_AUTH_PROXY_TARGET !== authTarget) throw new Error('Set DMC_AUTH_PROXY_TARGET to the isolated test auth server on port 5199.')
-const probe = randomUUID()
-const authServer = createServer(async (request, response) => {
-  const path = new URL(request.url, authTarget).pathname
-  response.setHeader('Content-Type', 'application/json')
-  if (request.method === 'GET' && path === '/api/auth/__fixture_probe') return response.end(JSON.stringify({ probe }))
-  if (request.method === 'GET' && path.endsWith('/get-session')) return response.end(JSON.stringify(authenticated ? activeSession : null))
-  if (request.method === 'POST' && path.endsWith('/update-user')) {
-    let body = ''
-    for await (const chunk of request) {
-      body += chunk
-      if (body.length > 4096) { response.writeHead(413); return response.end('{}') }
-    }
-    try { savedName = JSON.parse(body).name } catch { response.writeHead(400); return response.end('{}') }
-    activeSession.user.name = savedName
-    return response.end(JSON.stringify({ status: true }))
-  }
-  if (request.method === 'POST' && path.endsWith('/sign-out')) {
-    authenticated = false
-    return response.end(JSON.stringify({ success: true }))
-  }
-  response.writeHead(400)
-  return response.end(JSON.stringify({ code: 'UI_FIXTURE', message: 'Test-only auth response' }))
-})
-await new Promise((resolve, reject) => {
-  authServer.once('error', reject)
-  authServer.listen(5199, '127.0.0.1', resolve)
-})
-try {
-  const response = await fetch(new URL('/api/auth/__fixture_probe', base), { signal: AbortSignal.timeout(5000) })
-  if (!response.ok || (await response.json()).probe !== probe) throw new Error('Vite is not using the isolated auth fixture.')
-} catch (error) {
-  authServer.close()
-  await browser.close()
-  throw error
-}
 const context = await browser.newContext({
   viewport: { width: 1440, height: 1050 },
   reducedMotion: 'reduce',
@@ -114,8 +72,18 @@ await page.route('**/*', async (route) => {
       body: JSON.stringify(data),
     })
   if (path.startsWith('/api/auth/')) {
-    if (url.origin !== new URL(base).origin) return route.abort()
-    return route.continue()
+    if (path.endsWith('/get-session'))
+      return json(authenticated ? activeSession : null)
+    if (path.endsWith('/update-user')) {
+      savedName = request.postDataJSON().name
+      activeSession.user.name = savedName
+      return json({ status: true })
+    }
+    if (path.endsWith('/sign-out')) {
+      authenticated = false
+      return json({ success: true })
+    }
+    return json({ code: 'UI_FIXTURE', message: 'Test-only auth response' }, 400)
   }
   if (path.startsWith('/api/')) {
     if (request.method() !== 'GET')
@@ -556,5 +524,4 @@ try {
     scope: 'synthetic fixtures; automated checks only; incomplete findings need manual review', scans: accessibility,
   }, null, 2))
   await browser.close()
-  await new Promise((resolve, reject) => authServer.close((error) => error ? reject(error) : resolve()))
 }

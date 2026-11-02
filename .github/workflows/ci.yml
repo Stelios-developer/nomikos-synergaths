@@ -165,7 +165,6 @@ jobs:
         env:
           UI_TEST_URL: http://127.0.0.1:5197
           UI_TEST_ENGINE: ${{ matrix.engine }}
-          DMC_AUTH_PROXY_TARGET: http://127.0.0.1:5199
         run: |
           npm --prefix frontend run dev -- --host 127.0.0.1 --port 5197 --strictPort &
           server=$!
