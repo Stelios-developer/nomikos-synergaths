@@ -1,8 +1,7 @@
 """
 Hallucination Auditor — a dedicated post-generation verification agent
-that grades EVERY sentence of an already-generated answer against the
-chunks it was supposedly grounded in, and flags exactly which sentences
-are supported vs. unsupported.
+that asks a model to assess sentences against source chunks. A positive model
+verdict is not independent verification and always requires human review.
 
 This is a different kind of check than services/evaluator.py's
 faithfulness score: the evaluator asks the LLM for a single 0.0-1.0
@@ -25,12 +24,6 @@ import re
 from services.llm import complete
 
 _SENTENCE_BOUNDARY_RE = re.compile(r"[.!?]\s+")
-_ROLE_CLAIM_RE = re.compile(
-    r"υπευθυν|υπεύθυν|αρμόδι|αρμοδι|εγκρίν|εγκριν|έγκρισ|εγκρισ|"
-    r"ανατίθε|ανατιθε|ελέγχ|ελεγχ|ενημερών|ενημερων|"
-    r"approv|responsib|accountab|\bowners?\b|assign|reviewer|notifi",
-    re.IGNORECASE,
-)
 _MAX_AUDIT_UNITS = 30
 
 
@@ -79,13 +72,12 @@ def _extract_verdict_list(response: str, expected_length: int) -> list[dict] | N
 
 def audit_answer(answer: str, chunks: list[dict]) -> list[dict]:
     """
-    Grades each sentence of `answer` as SUPPORTED or UNSUPPORTED by
-    `chunks`, in one LLM call. Returns
+    Assesses each sentence of `answer` against `chunks` in one LLM call. Returns
     [{"text": str, "supported": bool, "reason": str}, ...], one entry per
     sentence, same order as they appear in `answer`.
 
-    Fail closed: an unavailable or malformed grading response is explicitly
-    unverifiable. It must never be presented as a supported claim.
+    Fail closed: positive model verdicts and unavailable or malformed responses
+    are unverifiable without human source review, never confirmed support.
     """
     sentences = _split_sentences(answer)
     if not sentences:
@@ -129,9 +121,10 @@ def audit_answer(answer: str, chunks: list[dict]) -> list[dict]:
             for s in sentences
         ]
 
-    return [
-        ({"text": s, "supported": False, "reason": "Ο ρόλος πρέπει να ελεγχθεί στην αρχική πηγή· η αυτόματη αξιολόγηση μπορεί να συγχέει υπεύθυνο και εγκρίνοντα.", "verification_unavailable": True}
-         if v["supported"] and _ROLE_CLAIM_RE.search(s)
-         else {"text": s, "supported": v["supported"], "reason": v.get("reason", "")})
-        for s, v in zip(sentences, parsed)
-    ]
+    results = []
+    for sentence, verdict in zip(sentences, parsed):
+        if verdict["supported"]:
+            results.append({"text": sentence, "supported": False, "reason": "Το AI εντόπισε πιθανή υποστήριξη, αλλά απαιτείται ανθρώπινος έλεγχος στην αρχική πηγή.", "verification_unavailable": True})
+        else:
+            results.append({"text": sentence, "supported": verdict["supported"], "reason": verdict["reason"]})
+    return results

@@ -37,8 +37,8 @@ async def run_audit(request: Request, req: AuditRequest, session_id: str = Depen
     """
     Non-streaming JSON endpoint for the Hallucination Auditor
     (services/auditor.py): grades every sentence of an already-generated
-    answer as SUPPORTED or UNSUPPORTED by the indexed citations, in a
-    single LLM call. Runs on-demand from the UI after an answer already
+    answer against indexed citations in a single LLM call. Positive model
+    verdicts require human source review. Runs on-demand from the UI after an answer already
     exists — not automatically on every query, unlike the numeric
     faithfulness score in services/evaluator.py.
     """

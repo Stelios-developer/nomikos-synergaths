@@ -319,7 +319,8 @@ def test_browser_document_intelligence_runs_all_stages_in_order():
         )
 
     assert response.status_code == 200
-    assert response.json()["status"] == "ready_for_human_review"
+    assert response.json()["status"] == "needs_human_review"
+    assert response.json()["final_action_pack"]["verification_status"] == "needs_human_review"
     start.assert_called_once_with("report.pdf", "browser-session")
     for call in (dna, facts, risks, brief, audit, finalize):
         call.assert_called_once_with("case-ui", "browser-session")

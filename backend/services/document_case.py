@@ -610,24 +610,25 @@ Claims:
             "reason": unavailable_reason,
         }
 
-    sentences = [
-        {
+    sentences = []
+    for claim, verdict in zip(claims, verdicts):
+        manual = verdict["supported"]
+        sentences.append({
             **claim,
-            "supported": verdict["supported"],
-            "reason": _text(verdict.get("reason"), "", 500),
-            "verification_unavailable": False,
-        }
-        for claim, verdict in zip(claims, verdicts)
-    ]
+            "supported": verdict["supported"] and not manual,
+            "reason": "The AI suggests support, but a human must check the source." if manual else _text(verdict.get("reason"), "", 500),
+            "verification_unavailable": manual,
+        })
     supported = sum(1 for sentence in sentences if sentence["supported"])
-    unsupported = len(sentences) - supported
+    unverifiable = sum(1 for sentence in sentences if sentence["verification_unavailable"])
+    unsupported = len(sentences) - supported - unverifiable
     missing_sources = sum(1 for sentence in sentences if not sentence["citation_ids"])
     return {
         "verification_available": True,
-        "passed": unsupported == 0 and missing_sources == 0,
+        "passed": unsupported == 0 and unverifiable == 0 and missing_sources == 0,
         "sentences": sentences,
-        "summary": {"supported": supported, "unsupported": unsupported, "unverifiable": 0},
-        "reason": "All claims were supported." if unsupported == 0 and missing_sources == 0 else "One or more claims need human review.",
+        "summary": {"supported": supported, "unsupported": unsupported, "unverifiable": unverifiable},
+        "reason": "All claims were supported." if unsupported == 0 and unverifiable == 0 and missing_sources == 0 else "One or more claims need human review.",
     }
 
 
@@ -695,12 +696,25 @@ def finalize_case(case_id: str, workspace_id: str) -> dict:
 
 def public_case(case: dict) -> dict:
     """Apply the current evidence gate to old cases without rewriting them."""
-    draft = case.get("draft_action_pack") or {}
     final = case.get("final_action_pack") or {}
-    incomplete = (draft.get("decisions_required") or draft.get("action_items")
-                  or any(risk.get("mitigation") for risk in draft.get("risk_register", []))
-                  or any(item.get("stage") == "facts_obligations" for item in case.get("warnings", [])))
-    if not incomplete or final.get("verification_status") != "verified":
+    previous_audit = case.get("audit") or {}
+    previous_sentences = previous_audit.get("sentences") or []
+    sensitive = any(item.get("supported") for item in previous_sentences)
+    if sensitive:
+        sentences = [
+            {**item, "supported": False, "verification_unavailable": True,
+             "reason": "The AI suggested support, but a human must check the source."}
+            if item.get("supported") else item
+            for item in previous_sentences
+        ]
+        summary = {
+            "supported": sum(bool(item.get("supported")) for item in sentences),
+            "unsupported": sum(not item.get("supported") and not item.get("verification_unavailable") for item in sentences),
+            "unverifiable": sum(bool(item.get("verification_unavailable")) for item in sentences),
+        }
+        case = {**case, "audit": {**previous_audit, "sentences": sentences, "summary": summary,
+                                  "passed": False, "reason": "AI-reviewed claims require human source review."}}
+    if final.get("verification_status") != "verified":
         return case
     audit = {**(case.get("audit") or {}), "passed": False,
              "reason": "Some findings or proposed actions require human source review."}
@@ -710,6 +724,7 @@ def public_case(case: dict) -> dict:
         "audit": audit,
         "final_action_pack": {
             **final, "verification_status": "needs_human_review",
+            "executive_summary": "The automatic brief was withheld because the evidence gate did not pass.",
             "decisions_required": [], "action_items": [], "deadline_calendar": [],
             "risk_register": [], "human_review_required": True,
             "next_step": "Review the source and proposed actions before relying on this case.",

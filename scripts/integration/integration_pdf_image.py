@@ -11,7 +11,7 @@ import sys
 import fitz
 
 ROOT = Path(__file__).resolve().parents[2]
-IMAGE = "dmc/pdf-worker:security-20261027-final"
+IMAGE = "dmc/pdf-worker:os-remediation"
 PROGRAM = r"""
 import importlib.util,json,os,sys,shutil
 import fitz

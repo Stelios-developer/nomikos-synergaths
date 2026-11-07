@@ -1,8 +1,44 @@
 from unittest.mock import patch
 
+import pytest
+
 import services.auditor as auditor
 
 CHUNKS = [{"text": "The R&D deduction rate is 24%.", "filename": "tax.pdf", "page_number": 2, "chunk_index": 0}]
+
+
+def test_arbitrary_unsupported_claim_is_not_certified_by_model_alone():
+    with patch.object(auditor, "complete", return_value='[{"supported": true, "reason": "matches"}]'):
+        result = auditor.audit_answer("The agreement permits termination at will.", [{"text": "The agreement describes delivery."}])
+    assert result[0]["supported"] is False
+    assert result[0]["verification_unavailable"] is True
+
+
+@pytest.mark.parametrize("claim", [
+    "Η υποβολή γίνεται έως αύριο.",
+    "Πρέπει να υποβληθεί μέχρι την Παρασκευή.",
+    "The report is due by Friday.",
+    "The filing is due tomorrow.",
+    "The submission must be completed within thirty days.",
+    "Ο αρμόδιος ειδοποιείται μετά από τρεις ημέρες.",
+])
+def test_additional_temporal_expressions_cannot_receive_a_model_only_pass(claim):
+    with patch.object(auditor, "complete", return_value='[{"supported": true, "reason": "matches"}]'):
+        result = auditor.audit_answer(claim, CHUNKS)
+    assert result[0]["supported"] is False
+    assert result[0]["verification_unavailable"] is True
+
+
+@pytest.mark.parametrize("claim", [
+    "The project budget is 50000 euros.",
+    "Το συνολικό ποσό ανέρχεται σε 1.200 €.",
+    "The contract amount is $1200.",
+])
+def test_monetary_amounts_require_source_review(claim):
+    with patch.object(auditor, "complete", return_value='[{"supported": true, "reason": "matches"}]'):
+        result = auditor.audit_answer(claim, CHUNKS)
+    assert result[0]["supported"] is False
+    assert result[0]["verification_unavailable"] is True
 
 
 def test_split_sentences_handles_basic_prose():
@@ -42,6 +78,21 @@ def test_unsupported_role_remains_unsupported():
     assert "verification_unavailable" not in result[0]
 
 
+def test_model_cannot_certify_an_invented_deadline():
+    source = [{"text": "The submission is due on 15 October 2026."}]
+    with patch.object(auditor, "complete", return_value='[{"supported": true, "reason": "matches"}]'):
+        result = auditor.audit_answer("Η προθεσμία είναι 20 Οκτωβρίου 2026.", source)
+    assert result[0]["supported"] is False
+    assert result[0]["verification_unavailable"] is True
+
+
+def test_model_cannot_certify_a_relative_deadline():
+    with patch.object(auditor, "complete", return_value='[{"supported": true, "reason": "matches"}]'):
+        result = auditor.audit_answer("Η υποβολή γίνεται εντός 30 ημερών.", CHUNKS)
+    assert result[0]["supported"] is False
+    assert result[0]["verification_unavailable"] is True
+
+
 def test_too_many_claims_fail_closed_without_provider_call():
     with patch.object(auditor, "complete") as complete:
         result = auditor.audit_answer("\n".join(f"Claim {i}" for i in range(31)), CHUNKS)
@@ -70,7 +121,9 @@ def test_audit_answer_parses_per_sentence_json_verdicts():
         result = auditor.audit_answer(answer, CHUNKS)
 
     assert len(result) == 2
-    assert result[0] == {"text": "The rate is 24% [1].", "supported": True, "reason": "matches chunk 1"}
+    assert result[0]["text"] == "The rate is 24% [1]."
+    assert result[0]["supported"] is False
+    assert result[0]["verification_unavailable"] is True
     assert result[1] == {
         "text": "It also covers software costs [2].",
         "supported": False,
