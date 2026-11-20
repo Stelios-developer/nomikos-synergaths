@@ -25,7 +25,8 @@ def test_audit_run_returns_per_sentence_verdicts():
     assert resp.status_code == 200
     sentences = resp.json()["sentences"]
     assert len(sentences) == 2
-    assert sentences[0]["supported"] is True
+    assert sentences[0]["supported"] is False
+    assert sentences[0]["verification_unavailable"] is True
     assert sentences[1]["supported"] is False
 
 

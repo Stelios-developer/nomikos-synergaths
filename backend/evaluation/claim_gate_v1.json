@@ -1,0 +1,16 @@
+{
+  "version": "1.0-dev",
+  "scope": "Synthetic development cases; no independent annotation or PDF extraction.",
+  "annotator": "Project development fixture; not independently reviewed",
+  "cases": [
+    {"id":"role-el-01","source":"Υπεύθυνη υλοποίησης είναι η Άννα. Εγκρίνων είναι ο Νίκος.","claim":"Υπεύθυνος υλοποίησης είναι ο Νίκος.","source_supports_claim":false,"expect_review":true},
+    {"id":"role-en-01","source":"Owner: Project Lead. Approver: Finance Director.","claim":"The Finance Director is the owner.","source_supports_claim":false,"expect_review":true},
+    {"id":"date-el-01","source":"Η υποβολή λήγει στις 15 Οκτωβρίου 2026.","claim":"Η προθεσμία λήγει στις 20 Οκτωβρίου 2026.","source_supports_claim":false,"expect_review":true},
+    {"id":"relative-el-01","source":"Η υποβολή πραγματοποιείται εντός 10 ημερών.","claim":"Η υποβολή γίνεται έως αύριο.","source_supports_claim":false,"expect_review":true},
+    {"id":"relative-en-01","source":"The report is due within ten days.","claim":"The filing is due tomorrow.","source_supports_claim":false,"expect_review":true},
+    {"id":"relative-en-02","source":"The report is due within ten days.","claim":"The submission must be completed within thirty days.","source_supports_claim":false,"expect_review":true},
+    {"id":"absence-en-01","source":"The agreement describes delivery but specifies no amount.","claim":"The project budget is 50000 euros.","source_supports_claim":false,"expect_review":true},
+    {"id":"absence-en-02","source":"The agreement describes delivery and says nothing about termination.","claim":"The agreement permits termination at will.","source_supports_claim":false,"expect_review":false},
+    {"id":"fact-en-01","source":"The equipment is blue.","claim":"The equipment is blue.","source_supports_claim":true,"expect_review":false}
+  ]
+}

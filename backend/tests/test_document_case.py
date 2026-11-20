@@ -238,3 +238,52 @@ def test_normalisers_drop_unknown_or_uncited_findings():
     assert [fact["statement"] for fact in result["facts"]] == ["supported"]
     assert result["obligations"] == []
     assert result["deadlines"] == []
+
+
+@pytest.mark.parametrize("claim", [
+    "The Finance Director is the owner.",
+    "The deadline is 20 October 2026.",
+    "Η προθεσμία είναι εντός 30 ημερών.",
+])
+def test_case_audit_cannot_certify_sensitive_claims_using_model_verdict_alone(claim):
+    claims = [{"text": claim, "citation_ids": ["C1"]}]
+    evidence = [{"id": "C1", "page": 1, "excerpt": "Owner: R&D lead. Approval: Finance Director. Due 15 October 2026."}]
+    with patch.object(document_case, "complete", return_value='[{"supported": true, "reason": "matches"}]'):
+        result = document_case._strict_audit(claims, evidence)
+    assert result["passed"] is False
+    assert result["sentences"][0]["verification_unavailable"] is True
+    assert result["summary"] == {"supported": 0, "unsupported": 0, "unverifiable": 1}
+
+
+def test_case_audit_does_not_certify_any_claim_on_model_verdict_alone():
+    claims = [{"text": "The agreement permits termination at will.", "citation_ids": ["C1"]}]
+    evidence = [{"id": "C1", "page": 1, "excerpt": "The agreement describes delivery."}]
+    with patch.object(document_case, "complete", return_value='[{"supported": true, "reason": "matches"}]'):
+        result = document_case._strict_audit(claims, evidence)
+    assert result["passed"] is False
+    assert result["sentences"][0]["verification_unavailable"] is True
+
+
+def test_old_verified_case_without_sensitive_keywords_requires_review():
+    old = {"status": "verified", "draft_action_pack": {},
+           "audit": {"passed": True, "sentences": [{"text": "The agreement permits termination at will.", "supported": True}]},
+           "final_action_pack": {"verification_status": "verified", "executive_summary": "The agreement permits termination at will."}}
+    result = document_case.public_case(old)
+    assert result["final_action_pack"]["verification_status"] == "needs_human_review"
+    assert result["audit"]["sentences"][0]["verification_unavailable"] is True
+    assert old["audit"]["passed"] is True
+
+
+def test_previously_verified_case_is_downgraded_without_mutating_stored_case():
+    case = {
+        "status": "verified", "draft_action_pack": {},
+        "audit": {"passed": True, "sentences": [{"text": "Deadline: 20 October 2026.", "supported": True}],
+                  "summary": {"supported": 1, "unsupported": 0, "unverifiable": 0}},
+        "final_action_pack": {"verification_status": "verified", "executive_summary": "Deadline: 20 October 2026."},
+    }
+    result = document_case.public_case(case)
+    assert result["status"] == "needs_human_review"
+    assert result["audit"]["summary"]["unverifiable"] == 1
+    assert result["final_action_pack"]["verification_status"] == "needs_human_review"
+    assert "20 October" not in result["final_action_pack"]["executive_summary"]
+    assert case["audit"]["passed"] is True
