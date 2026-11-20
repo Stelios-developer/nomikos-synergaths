@@ -81,7 +81,18 @@ def reset_rate_limiter():
 
 @pytest.fixture(autouse=True)
 def isolate_llm_provider(monkeypatch):
+    # Unit tests must opt into a test double, not inherit live credentials.
+    # Deleting LLM_PROVIDER alone is insufficient: provider() defaults to OpenAI.
+    import services.llm as llm
+    def no_live_client(*_args, **_kwargs):
+        raise RuntimeError('Live AI clients are disabled in unit tests; install a test double')
     monkeypatch.delenv("LLM_PROVIDER", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setattr(llm, '_openai_client', None)
+    monkeypatch.setattr(llm, '_anthropic_client', None)
+    monkeypatch.setattr(llm, 'OpenAI', no_live_client)
+    monkeypatch.setattr(llm, 'Anthropic', no_live_client)
     yield
 
 
