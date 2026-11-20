@@ -38,7 +38,9 @@ def validate_review(review, manifest, manifest_digest):
                         or type(item.get('page')) is not int or item['page'] not in (1, 2)):
                     raise ValueError('Present annotations require value, quote and valid page')
             elif item['status'] == 'absent':
-                if set(item) != {'status', 'reviewed_pages'} or item.get('reviewed_pages') != [1, 2]:
+                pages = item.get('reviewed_pages')
+                if (set(item) != {'status', 'reviewed_pages'} or pages != [1, 2]
+                        or any(type(page) is not int for page in pages)):
                     raise ValueError('Absence requires review of both pages')
             elif (set(item) != {'status', 'reason'} or not isinstance(item.get('reason'), str)
                   or not item['reason'].strip() or len(item['reason']) > 500):

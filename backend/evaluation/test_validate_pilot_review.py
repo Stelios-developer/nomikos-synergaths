@@ -27,12 +27,13 @@ class PilotHumanReviewTests(unittest.TestCase):
                 validate_review(review, self.manifest, 'hash')
 
     def test_rejects_unsubstantiated_structural_annotations(self):
-        for change in ('bad_page', 'empty_quote', 'partial_absence', 'missing_reason', 'contradictory'):
+        for change in ('bad_page', 'empty_quote', 'partial_absence', 'boolean_page', 'missing_reason', 'contradictory'):
             review = copy.deepcopy(self.review)
             fields = review['documents'][0]['fields']
             if change == 'bad_page': fields['owner']['page'] = 3
             elif change == 'empty_quote': fields['owner']['quote'] = ''
             elif change == 'partial_absence': fields['approver']['reviewed_pages'] = [1]
+            elif change == 'boolean_page': fields['approver']['reviewed_pages'] = [True, 2]
             elif change == 'missing_reason': fields['deadline']['reason'] = ''
             else: fields['approver']['value'] = 'contradiction'
             with self.subTest(change=change), self.assertRaises(ValueError):
