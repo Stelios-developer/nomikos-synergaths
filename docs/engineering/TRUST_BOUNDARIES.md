@@ -27,3 +27,5 @@ commands, results and skips. Run two-user ownership, session, CSRF, worker
 failure and restore tests in an isolated environment. A separate human review
 must assess authorization, document handling and retention before real usage.
 The presence of this document alone is not proof any of those checks passed.
+
+For structured-case audit, a claim without a known citation now leaves the whole batch unverifiable without a model call. The prompt includes only evidence cited by at least one claim. Batch members still share the union of cited excerpts, so this is not per-claim isolation or proof of entailment; positive verdicts still require human review. These checks are local code and regression tests, not independent evaluation or an authorization to send documents to a provider.

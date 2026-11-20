@@ -576,7 +576,26 @@ def _strict_audit(claims: list[dict], evidence: list[dict]) -> dict:
             "reason": "No document evidence was available.",
         }
 
-    context = _evidence_context(evidence)
+    # Never send an uncited claim or a claim with an unknown citation to the
+    # model as though the supplied excerpts established its evidence.  The
+    # whole batch remains unverifiable until the caller supplies valid links.
+    known_ids = {item.get("id") for item in evidence if isinstance(item, dict) and isinstance(item.get("id"), str)}
+    if any(not isinstance(claim.get("citation_ids"), list) or not claim["citation_ids"]
+           or any(not isinstance(identifier, str) or identifier not in known_ids for identifier in claim["citation_ids"])
+           for claim in claims):
+        reason = "A claim lacks a valid citation; human source review is required."
+        return {
+            "verification_available": False,
+            "passed": False,
+            "sentences": [{**claim, "supported": False, "reason": reason, "verification_unavailable": True} for claim in claims],
+            "summary": {"supported": 0, "unsupported": 0, "unverifiable": len(claims)},
+            "reason": reason,
+        }
+
+    cited_ids = {identifier for claim in claims for identifier in claim["citation_ids"]}
+    # A batched audit sees the union of the cited sources, not unrelated
+    # excerpts. Claims in the same batch can still see each other's sources.
+    context = _evidence_context([item for item in evidence if isinstance(item, dict) and item.get("id") in cited_ids])
     numbered_claims = "\n".join(f"{index}. {claim['text']}" for index, claim in enumerate(claims, start=1))
     prompt = f"""You are a strict evidence auditor. Verify each claim using only the document excerpts.
 Return ONLY a JSON array with exactly {len(claims)} objects, in the same order:
