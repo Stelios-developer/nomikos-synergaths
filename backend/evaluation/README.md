@@ -16,6 +16,12 @@ The report explicitly counts false supported claims remaining after the gate.
 All positive model verdicts now require human review. A passing regression here
 does not measure extraction, retrieval, answer quality, or human verification.
 
+`python evaluation/run_case_gate.py` applies the same synthetic development
+fixtures to the structured-case auditor, using a mocked positive model verdict.
+It separately counts unsupported claims incorrectly marked supported, missed
+review flags, and source-supported claims still sent for human review. The last
+number shows the conservative gate's tradeoff, not a model accuracy estimate.
+
 `generate_pilot_pdfs.py` creates 30 synthetic development PDFs (including six
 image-only examples) in a new temporary folder. Its template-generated labels
 are not independent annotations and there is no holdout. Run it with a local
