@@ -22,6 +22,7 @@ MAX_EXCERPT_CHARS = 700
 MAX_ITEMS_PER_SECTION = 20
 MAX_AUDIT_CLAIMS = 30
 MAX_AUDIT_CLAIM_CHARS = 1500
+MAX_CITATION_ID_CHARS = 16
 
 
 class CaseStageError(ValueError):
@@ -600,7 +601,9 @@ def _strict_audit(claims: list[dict], evidence: list[dict]) -> dict:
         if isinstance(item, dict) and isinstance(item.get("id"), str):
             evidence_by_id.setdefault(item["id"], []).append(item)
     invalid_citations = any(not isinstance(claim.get("citation_ids"), list) or not claim["citation_ids"]
-                            or any(not isinstance(identifier, str) or identifier not in evidence_by_id for identifier in claim["citation_ids"])
+                            or len(claim["citation_ids"]) > MAX_EVIDENCE_CHUNKS
+                            or any(not isinstance(identifier, str) or len(identifier) > MAX_CITATION_ID_CHARS
+                                   or identifier not in evidence_by_id for identifier in claim["citation_ids"])
                             for claim in claims)
     cited_ids = set() if invalid_citations else {identifier for claim in claims for identifier in claim["citation_ids"]}
     invalid_evidence = any(

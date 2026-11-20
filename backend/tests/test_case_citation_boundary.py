@@ -29,6 +29,17 @@ def test_invalid_citation_in_batch_withholds_all_claims_without_model_call():
     assert result['summary']['unverifiable'] == 2
 
 
+@pytest.mark.parametrize('citations,source_id', [(['C1'] * 49, 'C1'), (['C' * 17], 'C' * 17)])
+def test_unbounded_citation_input_never_calls_model(citations, source_id):
+    claims = [{'text': 'Synthetic claim', 'citation_ids': citations}]
+    evidence = [{'id': source_id, 'page': 1, 'excerpt': 'Synthetic source'}]
+    with patch.object(document_case, 'complete') as complete:
+        result = document_case._strict_audit(claims, evidence)
+    complete.assert_not_called()
+    assert result['verification_available'] is False
+    assert result['summary']['unverifiable'] == 1
+
+
 def test_uncited_excerpts_are_not_sent_to_model():
     claims = [{'text': 'First', 'citation_ids': ['C1']}]
     evidence = [{'id': 'C1', 'page': 1, 'excerpt': 'Synthetic cited source'},
