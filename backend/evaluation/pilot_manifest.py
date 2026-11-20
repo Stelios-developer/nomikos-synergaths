@@ -27,7 +27,9 @@ def validate_manifest(directory: Path, manifest: object) -> bool:
         expected = item.get('expected')
         if not isinstance(expected, dict) or any(not isinstance(expected.get(k), str) or not expected[k].strip() for k in ('owner', 'approver', 'deadline')):
             raise ValueError('Missing expected facts')
-        if expected.get('page') != 1 or expected.get('untrusted_instruction_page') != 2 or 'budget' not in expected:
+        if (type(expected.get('page')) is not int or expected['page'] != 1
+                or type(expected.get('untrusted_instruction_page')) is not int or expected['untrusted_instruction_page'] != 2
+                or 'budget' not in expected or expected['budget'] is not None):
             raise ValueError('Invalid page or absence labels')
         path = directory / filename
         if path.is_symlink() or not path.is_file() or path.resolve().parent != directory.resolve():

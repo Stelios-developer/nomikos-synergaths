@@ -50,6 +50,13 @@ class PilotManifestTests(unittest.TestCase):
             with self.subTest(modification=modification), self.assertRaises(ValueError):
                 validate_manifest(self.directory, manifest)
 
+    def test_rejects_boolean_page_and_fabricated_budget_label(self):
+        for field, value in (('page', True), ('untrusted_instruction_page', True), ('budget', 'invented')):
+            manifest = copy.deepcopy(self.manifest)
+            manifest['documents'][0]['expected'][field] = value
+            with self.subTest(field=field), self.assertRaisesRegex(ValueError, 'page or absence'):
+                validate_manifest(self.directory, manifest)
+
 
 if __name__ == '__main__':
     unittest.main()
