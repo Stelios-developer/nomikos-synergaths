@@ -29,3 +29,5 @@ separate coordinated restore to fresh storage. Record what was and was not
 restored, checksums, image IDs and cleanup. These tests are not yet evidenced by
 this inventory, and external backups, real TLS, independent security review and
 provider/data decisions remain release gates.
+
+A read-only preflight is available in scripts/k8s_local_guard.py for an already created isolated cluster and owned namespace. It requires a dedicated ignored kubeconfig under output/k8s, a unique nomikos-ak-* name, a matching local kind container label, loopback API endpoint and matching Docker port, plus a matching namespace ownership label. It creates nothing and must be called immediately before any future drill; target checks alone cannot prevent later state changes or establish authorization. Mocked unit tests cover refusal cases. No legal-workspace Kubernetes cluster or deployment has been tested by this helper.
