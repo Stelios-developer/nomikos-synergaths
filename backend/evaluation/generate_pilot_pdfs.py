@@ -5,6 +5,7 @@ substitute for human annotation. Output is created in a new temporary directory.
 """
 import argparse
 import datetime as dt
+import hashlib
 import json
 import re
 import tempfile
@@ -61,8 +62,11 @@ for index in range(30):
     else:
         doc.save(target)
     doc.close()
+    with target.open('rb') as source:
+        pdf_sha256 = hashlib.file_digest(source, 'sha256').hexdigest()
     entries.append({'id': target.stem, 'filename': target.name, 'language': 'el' if greek else 'en',
                     'format': 'scanned' if scanned else 'digital', 'split': 'development_only',
+                    'sha256': pdf_sha256,
                     'annotation_provenance': 'template-generated; not independently human reviewed',
                     'expected': {'owner': owner, 'approver': approver, 'deadline': day,
                                  'page': 1, 'budget': None, 'untrusted_instruction_page': 2}})

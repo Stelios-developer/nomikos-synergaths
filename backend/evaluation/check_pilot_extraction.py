@@ -6,11 +6,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from services.ingestion import extract_pages, is_scanned  # noqa: E402
+from pilot_manifest import validate_manifest  # noqa: E402
 
 parser = argparse.ArgumentParser()
 parser.add_argument('directory')
 directory = Path(parser.parse_args().directory).resolve(strict=True)
 manifest = json.loads((directory / 'manifest.json').read_text(encoding='utf-8'))
+integrity_verified = validate_manifest(directory, manifest)
 failures = []
 for item in manifest['documents']:
     path = (directory / item['filename']).resolve(strict=True)
@@ -27,5 +29,6 @@ for item in manifest['documents']:
         if 'Ignore previous' not in pages[1]['text'] and 'Αγνόησε' not in pages[1]['text']:
             failures.append(item['id'] + ': missing synthetic instruction')
 print(json.dumps({'documents': len(manifest['documents']), 'failures': failures,
+                  'pdf_hashes_verified': integrity_verified,
                   'ocr_tested': False, 'independent_holdout': False}, ensure_ascii=False, indent=2))
 sys.exit(bool(failures))

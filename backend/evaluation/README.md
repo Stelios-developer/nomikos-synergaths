@@ -22,3 +22,11 @@ are not independent annotations and there is no holdout. Run it with a local
 Unicode font and an existing output parent, then use `check_pilot_extraction.py`
 on the resulting folder. That checks digital extraction and scan detection; it
 does not run OCR, retrieval, a provider, or a prompt-injection evaluation.
+
+New pilot manifests record the SHA-256 of each generated PDF. The extraction
+check requires all 30 unique development documents, six scan labels and
+complete expected fields; it rejects changed files and unsafe filenames before
+extraction. Older `pilot-1` manifests without hashes remain readable, but the
+report explicitly marks `pdf_hashes_verified: false`. A checksum only proves a
+file matches its manifest; it does not establish independent annotation, source
+correctness, OCR quality or a trusted signature.
