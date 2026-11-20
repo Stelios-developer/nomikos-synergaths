@@ -20,6 +20,8 @@ from services.workspace_lock import scoped_operation
 MAX_EVIDENCE_CHUNKS = 48
 MAX_EXCERPT_CHARS = 700
 MAX_ITEMS_PER_SECTION = 20
+MAX_AUDIT_CLAIMS = 30
+MAX_AUDIT_CLAIM_CHARS = 1500
 
 
 class CaseStageError(ValueError):
@@ -563,6 +565,18 @@ def _strict_audit(claims: list[dict], evidence: list[dict]) -> dict:
             "sentences": [],
             "summary": {"supported": 0, "unsupported": 0, "unverifiable": 0},
             "reason": "There were no claims to verify.",
+        }
+    if (len(claims) > MAX_AUDIT_CLAIMS or len(evidence) > MAX_EVIDENCE_CHUNKS
+            or any(not isinstance(claim, dict) or not isinstance(claim.get("text"), str)
+                   or not claim["text"].strip() or len(claim["text"]) > MAX_AUDIT_CLAIM_CHARS for claim in claims)
+            or any(not isinstance(item, dict) or not isinstance(item.get("excerpt"), str)
+                   or len(item["excerpt"]) > MAX_EXCERPT_CHARS for item in evidence)):
+        return {
+            "verification_available": False,
+            "passed": False,
+            "sentences": [],
+            "summary": {"supported": 0, "unsupported": 0, "unverifiable": len(claims)},
+            "reason": "Audit input is invalid or exceeds limits; human source review is required.",
         }
     if not evidence:
         return {
