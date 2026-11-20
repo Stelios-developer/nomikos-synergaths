@@ -1,3 +1,4 @@
+import json
 from unittest.mock import patch
 
 import pytest
@@ -86,3 +87,15 @@ def test_oversized_audit_inputs_require_review_without_model_call(case):
     assert result['passed'] is False
     assert result['verification_available'] is False
     assert result['summary']['unverifiable'] == len(claims)
+
+
+def test_exact_audit_limits_accept_valid_synthetic_input():
+    claim = {'text': 'x' * 1500, 'citation_ids': ['C1']}
+    claims = [claim] * 30
+    evidence = [{'id': f'C{index}', 'page': 1, 'excerpt': 'y' * 700} for index in range(1, 49)]
+    verdicts = json.dumps([{'supported': True, 'reason': 'synthetic'}] * len(claims))
+    with patch.object(document_case, 'complete', return_value=verdicts) as complete:
+        result = document_case._strict_audit(claims, evidence)
+    complete.assert_called_once()
+    assert result['passed'] is False
+    assert result['summary']['unverifiable'] == 30
