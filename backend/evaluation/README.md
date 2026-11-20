@@ -36,3 +36,19 @@ extraction. Older `pilot-1` manifests without hashes remain readable, but the
 report explicitly marks `pdf_hashes_verified: false`. A checksum only proves a
 file matches its manifest; it does not establish independent annotation, source
 correctness, OCR quality or a trusted signature.
+
+`validate_pilot_review.py --corpus <pilot-directory> --review <review.json>`
+checks the *structure* of a completed human review against the exact manifest
+and hashed synthetic PDFs. The JSON has `reviewer`, `manifest_sha256` (SHA-256
+of the exact `manifest.json` bytes), and `documents`. Each document has `id`
+and `fields` for `owner`, `approver` and `deadline`. Each field must be one of:
+
+- `{"status":"present","value":"...","page":1,"quote":"..."}`;
+- `{"status":"absent","reviewed_pages":[1,2]}`;
+- `{"status":"uncertain","reason":"..."}`.
+
+The check requires all 30 documents, validates field shape and page bounds,
+and prints only hashes and counts. It neither verifies the reviewer is
+independent nor confirms quotes, absence, source support or model output. The
+pilot remains development-only; it is not a closed holdout. No human review is
+provided by this tool. Keep review files in ignored `output/`, not in Git.
