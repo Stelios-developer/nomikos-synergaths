@@ -35,3 +35,5 @@ The structured-case guard also refuses ambiguous duplicate IDs, empty excerpts a
 The batch prompt now maps each claim to its cited IDs and instructs the model to treat excerpts as untrusted. All cited excerpts are still visible in the same batch, so prompt instructions do not enforce isolation or guarantee resistance to injected text. No model-based verdict constitutes verified source support.
 
 The structured-case audit now refuses inputs beyond 30 claims, 48 evidence entries, 1,500 characters per claim or 700 per excerpt before invoking a model; invalid or oversized input remains unverifiable for human review. These bounds limit the submitted material but do not establish relevance or factual correctness.
+
+The audit builder no longer silently truncates summary, fact, deadline or risk claims. If their total exceeds the audit cap, the complete batch is marked unverifiable for human review without a provider call. Decisions, actions and mitigations remain outside this claim builder and continue to block automatic certification.

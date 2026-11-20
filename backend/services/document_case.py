@@ -500,17 +500,19 @@ def _build_audit_claims(case: dict, executive_summary: str) -> list[dict]:
         sentence = sentence.strip()
         if sentence:
             claims.append({"text": sentence, "category": "summary", "citation_ids": summary_citations})
-    for fact in case["facts"][:8]:
+    for fact in case["facts"]:
         claims.append({"text": fact["statement"], "category": "fact", "citation_ids": fact["citation_ids"]})
-    for deadline in case["deadlines"][:8]:
+    for deadline in case["deadlines"]:
         claims.append({
             "text": f"{deadline['event']} is due on {deadline['date']}.",
             "category": "deadline",
             "citation_ids": deadline["citation_ids"],
         })
-    for risk in case["risks"][:8]:
+    for risk in case["risks"]:
         claims.append({"text": risk["rationale"], "category": "risk", "citation_ids": risk["citation_ids"]})
-    return claims[:30]
+    # Keep all extracted claims visible to the audit gate. The gate refuses an
+    # oversized batch rather than silently treating the first 30 as complete.
+    return claims
 
 
 def run_draft_action_pack(case_id: str, workspace_id: str) -> dict:

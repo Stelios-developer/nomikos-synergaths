@@ -99,3 +99,26 @@ def test_exact_audit_limits_accept_valid_synthetic_input():
     complete.assert_called_once()
     assert result['passed'] is False
     assert result['summary']['unverifiable'] == 30
+
+
+def test_more_than_30_summary_claims_are_not_silently_dropped():
+    case = {'document_profile': {'citation_ids': ['C1']}, 'facts': [], 'deadlines': [], 'risks': []}
+    summary = ' '.join(f'Synthetic claim {index}.' for index in range(31))
+    claims = document_case._build_audit_claims(case, summary)
+    assert len(claims) == 31
+    evidence = [{'id': 'C1', 'page': 1, 'excerpt': 'Synthetic source'}]
+    with patch.object(document_case, 'complete') as complete:
+        result = document_case._strict_audit(claims, evidence)
+    complete.assert_not_called()
+    assert result['passed'] is False
+    assert result['summary']['unverifiable'] == 31
+
+
+def test_all_fact_deadline_and_risk_claims_reach_the_gate():
+    case = {'document_profile': {'citation_ids': ['C1']},
+            'facts': [{'statement': f'Fact {index}', 'citation_ids': ['C1']} for index in range(9)],
+            'deadlines': [{'event': f'Deadline {index}', 'date': '2027-01-01', 'citation_ids': ['C1']} for index in range(9)],
+            'risks': [{'rationale': f'Risk {index}', 'citation_ids': ['C1']} for index in range(9)]}
+    claims = document_case._build_audit_claims(case, '')
+    assert len(claims) == 27
+    assert [sum(claim['category'] == category for claim in claims) for category in ('fact', 'deadline', 'risk')] == [9, 9, 9]
