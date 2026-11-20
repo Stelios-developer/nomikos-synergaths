@@ -579,10 +579,23 @@ def _strict_audit(claims: list[dict], evidence: list[dict]) -> dict:
     # Never send an uncited claim or a claim with an unknown citation to the
     # model as though the supplied excerpts established its evidence.  The
     # whole batch remains unverifiable until the caller supplies valid links.
-    known_ids = {item.get("id") for item in evidence if isinstance(item, dict) and isinstance(item.get("id"), str)}
-    if any(not isinstance(claim.get("citation_ids"), list) or not claim["citation_ids"]
-           or any(not isinstance(identifier, str) or identifier not in known_ids for identifier in claim["citation_ids"])
-           for claim in claims):
+    evidence_by_id = {}
+    for item in evidence:
+        if isinstance(item, dict) and isinstance(item.get("id"), str):
+            evidence_by_id.setdefault(item["id"], []).append(item)
+    invalid_citations = any(not isinstance(claim.get("citation_ids"), list) or not claim["citation_ids"]
+                            or any(not isinstance(identifier, str) or identifier not in evidence_by_id for identifier in claim["citation_ids"])
+                            for claim in claims)
+    cited_ids = set() if invalid_citations else {identifier for claim in claims for identifier in claim["citation_ids"]}
+    invalid_evidence = any(
+        len(evidence_by_id[identifier]) != 1
+        or type(evidence_by_id[identifier][0].get("page")) is not int
+        or evidence_by_id[identifier][0]["page"] < 1
+        or not isinstance(evidence_by_id[identifier][0].get("excerpt"), str)
+        or not evidence_by_id[identifier][0]["excerpt"].strip()
+        for identifier in cited_ids
+    )
+    if invalid_citations or invalid_evidence:
         reason = "A claim lacks a valid citation; human source review is required."
         return {
             "verification_available": False,
@@ -592,7 +605,6 @@ def _strict_audit(claims: list[dict], evidence: list[dict]) -> dict:
             "reason": reason,
         }
 
-    cited_ids = {identifier for claim in claims for identifier in claim["citation_ids"]}
     # A batched audit sees the union of the cited sources, not unrelated
     # excerpts. Claims in the same batch can still see each other's sources.
     context = _evidence_context([item for item in evidence if isinstance(item, dict) and item.get("id") in cited_ids])

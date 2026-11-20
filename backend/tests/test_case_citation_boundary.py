@@ -39,3 +39,17 @@ def test_uncited_excerpts_are_not_sent_to_model():
     assert 'SYNTHETIC_UNCITED_SOURCE' not in prompt
     assert result['passed'] is False
     assert result['sentences'][0]['verification_unavailable'] is True
+
+
+@pytest.mark.parametrize('evidence', [
+    [{'id': 'C1', 'page': 1, 'excerpt': 'First'}, {'id': 'C1', 'page': 2, 'excerpt': 'Conflicting'}],
+    [{'id': 'C1', 'page': 0, 'excerpt': 'No valid page'}],
+    [{'id': 'C1', 'page': 1, 'excerpt': '   '}],
+    [{'id': 'C1', 'excerpt': 'Missing page'}],
+])
+def test_ambiguous_or_empty_cited_evidence_never_calls_model(evidence):
+    with patch.object(document_case, 'complete') as complete:
+        result = document_case._strict_audit([{'text': 'Synthetic claim', 'citation_ids': ['C1']}], evidence)
+    complete.assert_not_called()
+    assert result['verification_available'] is False
+    assert result['sentences'][0]['verification_unavailable'] is True
