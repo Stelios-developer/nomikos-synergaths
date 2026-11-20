@@ -3,12 +3,12 @@
   "generator": "uv 0.13.6 (329bf9448 2026-10-26 x86_64-pc-windows-msvc)",
   "python": "3.12",
   "files": {
-    "backend/constraints-tested.txt": "d19e53c2240df92e176cea87179c5a768abd3b7c2c1212200bead2852cf548dd",
+    "backend/constraints-tested.txt": "92e0d5afe60589b245987d04ff8aef2fe08ae492b6661d14a686975d1b67730e",
     "backend/requirements-dev.txt": "57fc28530764af84b4a66dc1ffde93047e6a237cac75ebdffa74346f27539329",
-    "backend/requirements-linux-py312.lock": "1abee1141a4d6c4afa7b4a28fae892450dd6b43b2e3975016a2e1b98f039f865",
+    "backend/requirements-linux-py312.lock": "c5b07453efd74a855dc4db6840b0eaa063f866f34530e4d536e54d5617946c18",
     "backend/requirements-test.lock": "009adb368c08e4a1bc4727c30faa4e70ddedef4938e867a8b59b17ca4d69b631",
-    "backend/requirements-win-py312.lock": "409f5c6ff33b3c4733135f0d8f5e37c660d6c60b9ef091b9e77c392a6d1dd667",
-    "backend/requirements.txt": "11dc7fdaf761585e83abc6e6f877905ec02609914f8a5b7e69366a23e89c2b73",
+    "backend/requirements-win-py312.lock": "9d645ebca6dcf3945a755f8f6cd97c6ba2782b77b1f13dda512464ef99985836",
+    "backend/requirements.txt": "7693be5b3fc35c238431ba25679b81dd79d6abdf62b810e866a8581464663d05",
     "security/pdf_worker/requirements-linux-py312.lock": "0c5508af3d64cb65af42494ce8c89b1f6185350b98f6b022fcc7c2e00634a5d6",
     "security/pdf_worker/requirements.txt": "aee877a3144091bfc686b1a7192fa9e00c1c3ccd149f6124ae9ba5685fd6fe26"
   }

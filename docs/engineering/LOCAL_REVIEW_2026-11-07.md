@@ -98,3 +98,14 @@ that the AI answer or the reviewer is correct.
   external service, paid cloud or hosted CI was used. A coordinated multi-store
   backup/restore drill, Kubernetes suite, real provider evaluation, independent
   review, production configuration and human approval workflow remain open.
+
+## Dependency security recheck, 2026-11-20
+
+The first PR CI run reported GHSA-3jp2-3mrg-2vxc in oauthlib 4.0.0 and
+GHSA-mf5v-w3w3-f6cg in opentelemetry-api 1.45.1. Updated oauthlib to 4.0.1,
+aligned OpenTelemetry API/SDK/exporters to 1.45.2, and regenerated both
+platform locks and the provenance manifest. Local backend tests passed (309)
+using a temporary dependency overlay over the existing environment; this is
+not a clean-lock environment or a production deployment. The first CI scan
+also reported medium-severity Wolfi OS advisories; a passing high/critical
+gate does not mean that the image has no advisories. New CI must be reviewed.
