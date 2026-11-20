@@ -39,7 +39,15 @@ def validate_target(cluster, kubeconfig):
         raise ValueError('Control-plane ownership does not match')
     context = f'kind-{cluster}'
     view = json.loads(execute(['kubectl', '--kubeconfig', str(path), 'config', 'view', '--minify', '--context', context, '-o', 'json']))
-    server = view['clusters'][0]['cluster']['server']
+    cluster_config = view['clusters'][0]['cluster']
+    users = view.get('users')
+    if (not isinstance(users, list) or len(users) != 1 or not isinstance(users[0], dict)
+            or not isinstance(users[0].get('user'), dict)
+            or any(key in users[0]['user'] for key in ('exec', 'auth-provider', 'tokenFile'))
+            or cluster_config.get('insecure-skip-tls-verify') is True
+            or cluster_config.get('proxy-url')):
+        raise ValueError('Unsafe kubeconfig authentication, proxy or TLS setting')
+    server = cluster_config['server']
     match = re.fullmatch(r'https://(?:127\.0\.0\.1|\[::1\]):([0-9]{1,5})', server)
     if not match or not 1 <= int(match.group(1)) <= 65535:
         raise ValueError('Kubernetes API must bind to local loopback')

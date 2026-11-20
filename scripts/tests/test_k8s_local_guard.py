@@ -21,7 +21,7 @@ class LocalTargetGuardTests(unittest.TestCase):
         self.folder.mkdir(parents=True)
         self.config = self.folder / f'{self.cluster}.kubeconfig'
         self.config.write_text('test-only', encoding='utf-8')
-        self.view = {'clusters': [{'cluster': {'server': 'https://127.0.0.1:12345'}}]}
+        self.view = {'clusters': [{'cluster': {'server': 'https://127.0.0.1:12345'}}], 'users': [{'user': {}}]}
         self.bindings = [{'HostIp': '127.0.0.1', 'HostPort': '12345'}]
         self.namespace = {'metadata': {'name': self.cluster, 'labels': {guard.OWNER_LABEL: self.cluster}}}
 
@@ -48,6 +48,21 @@ class LocalTargetGuardTests(unittest.TestCase):
         bindings = [{'HostIp': '127.0.0.1', 'HostPort': '23456'}]
         with self.assertRaisesRegex(ValueError, 'control-plane port'):
             self.run_guard([self.cluster, json.dumps(self.view), json.dumps(bindings)])
+
+    def test_rejects_exec_auth_insecure_tls_and_proxy_before_connecting(self):
+        for modification in ('exec', 'auth-provider', 'tokenFile', 'insecure', 'proxy'):
+            view = json.loads(json.dumps(self.view))
+            if modification in ('exec', 'auth-provider', 'tokenFile'):
+                view['users'][0]['user'][modification] = {'command': 'unsafe'}
+            elif modification == 'insecure':
+                view['clusters'][0]['cluster']['insecure-skip-tls-verify'] = True
+            else:
+                view['clusters'][0]['cluster']['proxy-url'] = 'http://example.test:1234'
+            with self.subTest(modification=modification), patch.object(guard, 'ROOT', self.root), \
+                 patch.object(guard, 'execute', side_effect=[self.cluster, json.dumps(view)]) as execute:
+                with self.assertRaisesRegex(ValueError, 'Unsafe kubeconfig'):
+                    guard.validate_target(self.cluster, self.config)
+                self.assertEqual(execute.call_count, 2)
 
     def test_rejects_other_project_or_arbitrary_config_before_docker(self):
         outside = self.root / 'outside.kubeconfig'
