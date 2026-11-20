@@ -16,6 +16,16 @@ commit credentials, database URLs containing credentials or customer documents.
 
 ## 2. Build, test and bind the actual artifacts
 
+For a local synthetic checkpoint, `python scripts/quality/verify_offline.py`
+requires a clean committed tree and an existing local backend image plus host
+pytest packages. It archives that commit, runs evaluation and guard unit tests,
+and runs backend unit tests with the source mounted read-only in a container
+with networking disabled. It records image ID, lockfile hashes, results and
+reported skips under ignored `output/verification/`. This reuses dependencies;
+it is not a clean lockfile build, a scanned/signed artifact, a Kubernetes test,
+or a release approval. It retains the archived source and logs in that ignored
+directory; treat the directory according to the repository's data policy.
+
 Build from a reviewed clean source revision. Record the source revision and
 immutable image digests for API, auth, PDF worker and every supporting image.
 Scan those exact digests with current advisories, generate an SBOM, record scanner
