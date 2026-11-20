@@ -30,4 +30,14 @@ restored, checksums, image IDs and cleanup. These tests are not yet evidenced by
 this inventory, and external backups, real TLS, independent security review and
 provider/data decisions remain release gates.
 
-A read-only preflight is available in scripts/k8s_local_guard.py for an already created isolated cluster and owned namespace. It requires a dedicated ignored kubeconfig under output/k8s, a unique nomikos-ak-* name, a matching local kind container label, loopback API endpoint and matching Docker port, plus a matching namespace ownership label. It creates nothing and must be called immediately before any future drill; target checks alone cannot prevent later state changes or establish authorization. Mocked unit tests cover refusal cases. No legal-workspace Kubernetes cluster or deployment has been tested by this helper.
+A read-only preflight is available in scripts/k8s_local_guard.py for an already created isolated cluster and owned namespace. It requires a dedicated ignored kubeconfig under output/k8s, a unique nomikos-ak-* name, a matching local kind container label, loopback API endpoint and matching Docker port, plus a matching namespace ownership label. It creates nothing and must be called immediately before any future drill; target checks alone cannot prevent later state changes or establish authorization. Mocked unit tests cover refusal cases. The helper does not deploy or test the legal-workspace application.
+
+On 20 November 2026 the preflight was also exercised against a newly created,
+single-node local kind cluster and uniquely labelled empty test namespace, with
+code revision `226b196`. It accepted the owned loopback target; the test cluster
+was removed afterwards. The node used an existing local kind image with image ID
+`sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5`.
+No application, databases, secrets, documents, ingress or network policies
+were deployed. The check does not establish CNI enforcement, storage recovery,
+application readiness, fault tolerance or production security. The mock refusal
+tests are not real adversarial-cluster tests.
