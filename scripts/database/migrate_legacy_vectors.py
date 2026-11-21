@@ -144,21 +144,10 @@ def make_backup(path, rows, source):
     encryption = seal(path, produce)
     # Fully decrypt, validate every member checksum and reparse the export before activation.
     with tarfile.open(fileobj=io.BytesIO(restore_bytes(path)), mode="r:") as archive:
-        actual = {}
-        for entry in archive.getmembers():
-            if (
-                not entry.isfile()
-                or entry.name.startswith("/")
-                or ".." in Path(entry.name).parts
-            ):
-                raise ValueError("Unexpected backup member")
-            if entry.name != "manifest.json":
-                actual[entry.name] = hashlib.sha256(
-                    archive.extractfile(entry).read()
-                ).hexdigest()
-        saved = json.load(archive.extractfile("manifest.json"))
+        from archive_validation import validate_inventory
+        saved = validate_inventory(archive)
         if (
-            saved != actual
+            saved != inventory
             or json.load(archive.extractfile("legacy-vectors.json")) != rows
         ):
             raise RuntimeError("Backup restore verification mismatch")

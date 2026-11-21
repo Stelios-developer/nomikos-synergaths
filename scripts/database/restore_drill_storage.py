@@ -19,27 +19,18 @@ from psycopg.conninfo import make_conninfo
 from db.migrate import migrate
 from db.vector_store import PgVectorStore, VectorSettings, row_digest, vector
 from services.backup_crypto import restore_bytes
+from archive_validation import validate_inventory
 
 
 def verified_archive(path):
     if not path.resolve().is_relative_to(ROOT / "output/security-backups"):
         raise ValueError("Use an exact DMC backup inside the ignored backup directory")
     archive = tarfile.open(fileobj=io.BytesIO(restore_bytes(path)), mode="r:")
-    manifest = json.load(archive.extractfile("manifest.json"))
-    actual = {}
-    for entry in archive.getmembers():
-        if (
-            not entry.isfile()
-            or entry.name.startswith("/")
-            or ".." in Path(entry.name).parts
-        ):
-            raise ValueError("Unexpected recovery archive member")
-        if entry.name != "manifest.json":
-            actual[entry.name] = hashlib.sha256(
-                archive.extractfile(entry).read()
-            ).hexdigest()
-    if manifest != actual:
-        raise RuntimeError("Backup checksum mismatch")
+    try:
+        validate_inventory(archive)
+    except Exception:
+        archive.close()
+        raise
     return archive
 
 

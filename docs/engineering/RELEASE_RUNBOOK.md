@@ -16,6 +16,11 @@ failure, not a passing release. The test uses reused local dependencies, and
 does not cover a browser-to-auth HTTP deployment, verified email, PDF/OCR, n8n,
 provider calls, Kubernetes or production readiness.
 
+Legacy encrypted-backup verification and its restore drill share an inventory
+validator that rejects duplicate names or manifest keys, links, unsafe paths,
+missing members and checksum mismatches. This is an archive-integrity guard,
+not a coordinated restore of all stores or evidence of off-machine recovery.
+
 Status: **not approved for production**. This runbook records the order and
 proof required to release without treating a local test as hosted evidence.
 It does not create infrastructure, enable billable services, or authorize paid

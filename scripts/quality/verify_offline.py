@@ -103,6 +103,7 @@ def verify(image=IMAGE):
                                      for name in ('backend/requirements-linux-py312.lock', 'backend/requirements-test.lock')}
         for name, pattern, directory in [('evaluation_unit', 'test*.py', 'backend/evaluation'),
                                          ('k8s_guard_unit', 'test_k8s_local_guard.py', 'scripts/tests'),
+                                         ('backup_archive_unit', 'test_archive_validation.py', 'scripts/tests'),
                                          ('verification_unit', 'test_verify_*.py', 'scripts/tests')]:
             step(name, [sys.executable, '-m', 'unittest', 'discover', '-s', directory, '-p', pattern, '-v'], source)
         container_name = 'nomikos-' + run_id
