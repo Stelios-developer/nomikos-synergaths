@@ -14,6 +14,7 @@ import sys
 from verify_offline import ROOT, IMAGE, clean_revision, extract_archive, pytest_mounts, run
 
 PG_IMAGE = 'pgvector/pgvector:0.8.7-pg17'
+AUTH_IMAGE = 'dmc-release-review-auth:latest'
 PASSWORD = 'synthetic-disposable-only'
 SETUP = r'''
 import psycopg
@@ -32,7 +33,8 @@ def verify():
     revision = clean_revision()
     image_id = run(['docker', 'image', 'inspect', '--format', '{{.Id}}', IMAGE])
     pg_id = run(['docker', 'image', 'inspect', '--format', '{{.Id}}', PG_IMAGE])
-    if any(not re.fullmatch(r'sha256:[0-9a-f]{64}', image) for image in (image_id, pg_id)):
+    auth_id = run(['docker', 'image', 'inspect', '--format', '{{.Id}}', AUTH_IMAGE])
+    if any(not re.fullmatch(r'sha256:[0-9a-f]{64}', image) for image in (image_id, pg_id, auth_id)):
         raise ValueError('Expected exact local image IDs')
     mounts = pytest_mounts()
     run_id = 'nomikos-vector-' + secrets.token_hex(8)
@@ -43,10 +45,11 @@ def verify():
     archive = folder / 'source.zip'
     report_path = folder / 'report.json'
     report = {'commit': revision, 'run_id': run_id, 'backend_image': image_id,
-              'postgres_image': pg_id, 'started_utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'postgres_image': pg_id, 'auth_image': auth_id, 'started_utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
               'result': 'running', 'steps': [], 'cleanup': 'not_started',
               'limits': ['synthetic data only', 'reused local images and host pytest, not a clean signed build',
-                         'no auth, PDF worker, n8n, browser, real provider or production certification']}
+                         'synthetic auth with verification email disabled; not a live HTTP browser flow',
+                         'no PDF worker, n8n, browser, real provider or production certification']}
 
     def save():
         report_path.write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
@@ -67,6 +70,27 @@ def verify():
         if result.returncode:
             raise RuntimeError(f'{name} failed; see local test log')
         print(f'{name}: passed', flush=True)
+
+    def exchange(name, args, payload, *, json_output=False):
+        # Cookies and test credentials stay in memory and must never enter logs.
+        args = args[:2] + ['--name', f'{run_id}-{name}', '--label', f'nomikos.local/verify={run_id}', '-i'] + args[2:]
+        try:
+            result = subprocess.run(args, cwd=source, input=json.dumps(payload), capture_output=True,
+                                    text=True, encoding='utf-8', errors='replace', timeout=120)
+        except subprocess.TimeoutExpired:
+            report['steps'].append({'name': name, 'exit_code': None, 'status': 'timeout', 'skips': []})
+            save()
+            raise
+        report['steps'].append({'name': name, 'exit_code': result.returncode, 'skips': []})
+        save()
+        if result.returncode:
+            raise RuntimeError(f'{name} failed; sensitive subprocess output withheld')
+        try:
+            value = json.loads(result.stdout.splitlines()[-1]) if json_output else None
+        except (ValueError, IndexError) as exc:
+            raise RuntimeError(f'{name} returned invalid output') from exc
+        print(f'{name}: passed', flush=True)
+        return value
 
     save()
     try:
@@ -93,9 +117,29 @@ def verify():
                 '-e', f'DMC_TEST_DISPATCH_URL=postgresql://dmc_dispatcher:{PASSWORD}@db:5432/dmc',
                 '--entrypoint', 'python', image_id]
         step('setup', base + ['-c', SETUP])
+        secret = secrets.token_urlsafe(48)
+        uri = f'postgresql://dmc_owner:{PASSWORD}@db:5432/dmc'
+        auth = ['docker', 'run', '--rm', '--pull=never', '--network', network, '--cap-drop=ALL',
+                '--security-opt=no-new-privileges', '--mount', f'type=bind,source={source / "auth-service" / "src"},target=/app/src,readonly',
+                '--mount', f'type=bind,source={source / "scripts" / "quality" / "fixtures" / "synthetic_auth.mjs"},target=/app/synthetic_auth.mjs,readonly',
+                '-w', '/app', '-e', f'DATABASE_URL={uri}', '-e', f'BETTER_AUTH_SECRET={secret}',
+                '-e', 'APP_ENV=development', '-e', 'NODE_ENV=development', '-e', 'APP_ORIGIN=http://127.0.0.1:5174',
+                '-e', 'BETTER_AUTH_URL=http://127.0.0.1:3002', '-e', 'REQUIRE_EMAIL_VERIFICATION=false',
+                '-e', 'HOME=/tmp', '--entrypoint', 'node', auth_id, '--import', 'tsx', '/app/synthetic_auth.mjs']
+        auth_backend = base[:base.index('--entrypoint')] + [
+            '-e', f'DATABASE_URL={uri}', '-e', f'BETTER_AUTH_SECRET={secret}',
+            '-e', 'AUTH_REQUIRED=true', '-e', 'REQUIRE_VERIFIED_EMAIL=false',
+        ] + base[base.index('--entrypoint'):] + ['/project/scripts/quality/fixtures/synthetic_auth_backend.py']
+        users = exchange('auth_create', auth, {'phase': 'create', 'password': secrets.token_urlsafe(24)}, json_output=True)['users']
+        if not isinstance(users, list) or len(users) != 2:
+            raise RuntimeError('Synthetic auth did not produce exactly two users')
+        exchange('auth_active', auth_backend, {'phase': 'active', 'users': users})
+        exchange('auth_expire', auth_backend, {'phase': 'expired_first', 'users': users})
+        exchange('auth_signout', auth, {'phase': 'signout', 'users': [users[1]]}, json_output=True)
+        exchange('auth_revoked', auth_backend, {'phase': 'revoked', 'users': users})
         step('postgres_integration', base + ['-m', 'pytest', '-p', 'no:cacheprovider', 'backend/integration_tests', '-q', '-rs'])
         report['result'] = 'passed_with_skips' if any(s['skips'] for s in report['steps']) else 'passed'
-    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
+    except (OSError, ValueError, RuntimeError, TypeError, KeyError, IndexError, subprocess.SubprocessError) as exc:
         report['result'] = 'failed'; report['failure_type'] = type(exc).__name__
         print(f'Isolated integration failed: {type(exc).__name__}', file=sys.stderr)
     finally:
@@ -103,7 +147,7 @@ def verify():
         # A failed daemon connection is not proof of successful cleanup.
         try:
             run(['docker', 'info', '--format', '{{.ServerVersion}}'])
-            for name in (container, run_id + '-setup', run_id + '-postgres_integration'):
+            for name in (container, *(run_id + '-' + part for part in ('setup', 'auth_create', 'auth_active', 'auth_expire', 'auth_signout', 'auth_revoked', 'postgres_integration'))):
                 found = run(['docker', 'ps', '-aq', '--filter', f'name=^/{name}$'])
                 if found:
                     label = run(['docker', 'inspect', '--format', '{{index .Config.Labels "nomikos.local/verify"}}', name])
