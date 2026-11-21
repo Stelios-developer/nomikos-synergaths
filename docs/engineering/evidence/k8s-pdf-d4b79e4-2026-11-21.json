@@ -1,0 +1,73 @@
+{
+  "commit": "d4b79e4adde3a38c66e11e59336357b60a20eb34",
+  "cluster": "nomikos-ak-0423f0a97556",
+  "started_utc": "2026-11-21T20:00:32.654668+00:00",
+  "resources": [
+    "Namespace/nomikos-ak-0423f0a97556",
+    "ConfigMap/scanner-config",
+    "Secret/pdf-worker-test-token",
+    "Service/clamav",
+    "Service/pdf-worker",
+    "Deployment/pdf-scanner",
+    "Deployment/pdf-worker",
+    "NetworkPolicy/deny-default",
+    "NetworkPolicy/scanner-flow",
+    "NetworkPolicy/worker-flow"
+  ],
+  "steps": [
+    {
+      "name": "schema",
+      "status": "passed"
+    },
+    {
+      "name": "apply",
+      "status": "passed"
+    },
+    {
+      "name": "ready_pdf-scanner",
+      "status": "passed"
+    },
+    {
+      "name": "ready_pdf-worker",
+      "status": "passed"
+    },
+    {
+      "name": "scanner_and_cdr",
+      "status": "passed"
+    },
+    {
+      "name": "stop_scanner",
+      "status": "passed"
+    },
+    {
+      "name": "scanner_unavailable",
+      "status": "passed"
+    },
+    {
+      "name": "scanner_recovered",
+      "status": "passed"
+    }
+  ],
+  "result": "passed",
+  "limits": [
+    "partial PDF/scanner slice only, not full application deployment",
+    "local reused image tags; no independently verified source provenance",
+    "bundled scanner signatures were not updated",
+    "no CNI enforcement, ingress, auth, n8n or production certification",
+    "caller owns cluster cleanup; this drill deletes no namespaces or volumes"
+  ],
+  "runtime_images": [
+    {
+      "pod": "pdf-scanner-649f5df576-xccs2",
+      "container": "scanner",
+      "image_id": "docker.io/library/import-2026-11-21@sha256:ab6a2606ee75d45008bbf8b75b0892cd6d444a6b4558e61785076072ac1eeb0f"
+    },
+    {
+      "pod": "pdf-worker-574744f546-6jn5c",
+      "container": "worker",
+      "image_id": "sha256:eecc8a6c2d937bc67e41c5f7ea50f7f608c74b2b06f95e4cc6cf49ce0d509c37"
+    }
+  ],
+  "client_sha256": "080cb46c63828918c427198cff4e7ce230ea81c632ca244fe6ee6a32ab68d0ba",
+  "finished_utc": "2026-11-21T20:01:36.820662+00:00"
+}

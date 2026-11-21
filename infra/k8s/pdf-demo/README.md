@@ -16,3 +16,13 @@ infra/k8s/pdf-demo` and `python -m unittest discover -s scripts/tests -p
 test_k8s_pdf_manifest.py` perform focused offline checks only. Full AK
 acceptance, TLS, fault recovery, integrated storage and offsite backups remain
 open until separately tested and recorded.
+
+On 2026-11-21, an isolated kind drill at commit `d4b79e4` passed strict
+server-side validation, readiness, synthetic PDF sanitization, the EICAR
+scanner check, scanner outage fail-closed behavior and scanner recovery.
+The [recorded report](../../../docs/engineering/evidence/k8s-pdf-d4b79e4-2026-11-21.json)
+includes runtime image IDs and the fixture hash. Those local image IDs do not
+establish that the images were built from that commit. A cleanup wrapper
+failed after the drill; the owned test cluster was subsequently removed
+manually and the paused Padel cluster restarted. This result covers only the
+slice described above, not the complete Kubernetes deployment or recovery.
