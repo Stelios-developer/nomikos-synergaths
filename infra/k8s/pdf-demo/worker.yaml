@@ -1,0 +1,93 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pdf-worker-test-token
+type: Opaque
+stringData:
+  token: synthetic-only-token-at-least-32-characters
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pdf-worker
+spec:
+  selector:
+    app: pdf-worker
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pdf-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pdf-worker
+  template:
+    metadata:
+      labels:
+        app: pdf-worker
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: worker
+          image: dmc-release-review-pdf:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8080
+          env:
+            - name: CLAMAV_HOST
+              value: clamav
+            - name: CLAMAV_PORT
+              value: '3310'
+            - name: PDF_SECURITY_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: pdf-worker-test-token
+                  key: token
+          startupProbe:
+            tcpSocket:
+              port: 8080
+            periodSeconds: 5
+            failureThreshold: 24
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+              ephemeral-storage: 64Mi
+            limits:
+              cpu: '2'
+              memory: 1Gi
+              ephemeral-storage: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ['ALL']
+          volumeMounts:
+            - name: scratch
+              mountPath: /tmp
+      volumes:
+        - name: scratch
+          emptyDir:
+            sizeLimit: 128Mi

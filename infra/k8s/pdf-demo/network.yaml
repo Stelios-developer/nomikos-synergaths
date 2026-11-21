@@ -1,0 +1,56 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-default
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: scanner-flow
+spec:
+  podSelector:
+    matchLabels:
+      app: pdf-scanner
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: pdf-worker
+      ports:
+        - protocol: TCP
+          port: 3310
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: worker-flow
+spec:
+  podSelector:
+    matchLabels:
+      app: pdf-worker
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              nomikos.local/purpose: pdf-test-client
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: pdf-scanner
+      ports:
+        - protocol: TCP
+          port: 3310
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
