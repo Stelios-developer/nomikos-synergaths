@@ -23,6 +23,10 @@ Legacy encrypted-backup verification and its restore drill share an inventory
 validator that rejects duplicate names or manifest keys, links, unsafe paths,
 missing members and checksum mismatches. This is an archive-integrity guard,
 not a coordinated restore of all stores or evidence of off-machine recovery.
+On Windows, `python scripts/quality/verify_windows_backup.py` additionally
+runs synthetic encrypted-backup and current-user DPAPI checks that the Linux
+container skips. The report is written under ignored `output/verification/`;
+the test uses host dependencies and does not prove recovery on another machine.
 
 Status: **not approved for production**. This runbook records the order and
 proof required to release without treating a local test as hosted evidence.
