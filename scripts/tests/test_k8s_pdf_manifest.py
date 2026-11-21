@@ -1,11 +1,18 @@
 """Focused render checks only; these are not cluster or CNI tests."""
 from pathlib import Path
+import copy
+import importlib.util
 import subprocess
+import sys
 import unittest
 
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / 'scripts/quality'))
+spec = importlib.util.spec_from_file_location('k8s_pdf_drill', ROOT / 'scripts/quality/k8s_pdf_drill.py')
+drill = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(drill)
 
 
 class PdfDemoManifestTests(unittest.TestCase):
@@ -44,6 +51,20 @@ class PdfDemoManifestTests(unittest.TestCase):
                 self.assertIn('readinessProbe', container)
                 self.assertIn('livenessProbe', container)
                 self.assertIn('ephemeral-storage', container['resources']['limits'])
+
+    def test_drill_remaps_only_expected_resources_and_refuses_extra(self):
+        namespace = 'nomikos-ak-123456abcdef'
+        docs = drill.prepare(copy.deepcopy(self.docs), namespace)
+        self.assertTrue(all(doc['metadata']['name'] == namespace if doc['kind'] == 'Namespace'
+                            else doc['metadata']['namespace'] == namespace for doc in docs))
+        bad = copy.deepcopy(self.docs)
+        bad.append({'kind': 'Secret', 'metadata': {'name': 'unexpected', 'namespace': 'nomikos-pdf-demo'}})
+        with self.assertRaisesRegex(ValueError, 'Unexpected PDF demo resources'):
+            drill.prepare(bad, namespace)
+        bad = copy.deepcopy(self.docs)
+        next(doc for doc in bad if doc['kind'] == 'Service')['metadata']['namespace'] = 'foreign'
+        with self.assertRaisesRegex(ValueError, 'Unexpected resource namespace'):
+            drill.prepare(bad, namespace)
 
 
 if __name__ == '__main__':
