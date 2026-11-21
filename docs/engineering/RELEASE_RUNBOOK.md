@@ -7,7 +7,8 @@ checkout. It uses pre-existing local backend and pgvector images, creates a
 uniquely named internal Docker network and disposable database, and records
 the exact source revision, local image IDs, skips and cleanup in ignored
 `output/verification/`. Two synthetic users are created in the disposable
-database; backend verification checks each signed cookie, rejects tampering,
+database; wrong passwords are rejected and backend verification checks each
+signed cookie, ignores a forged workspace header, rejects tampering,
 enforces distinct workspace-scoped vector results, and rejects an expired
 session and a separate signed-out session. Cookies remain in memory rather than test logs. Email verification
 is disabled in this synthetic-only scenario. It does not connect to the

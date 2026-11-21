@@ -28,7 +28,8 @@ async def check():
         for index, user in enumerate(data['users']):
             async def resolve(cookie):
                 request = Request({'type': 'http', 'method': 'GET', 'path': '/',
-                                   'headers': [(b'cookie', cookie.encode())], 'app': app})
+                                   'headers': [(b'cookie', cookie.encode()),
+                                               (b'x-workspace-id', b'untrusted-forged-workspace')], 'app': app})
                 return await require_authenticated_user(request)
             try:
                 actual = await resolve(user['cookie'])

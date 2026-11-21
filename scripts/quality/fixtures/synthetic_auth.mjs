@@ -23,6 +23,8 @@ try {
       users.push({ id: data.user.id, cookie });
     }
     assert(users[0].id !== users[1].id);
+    const wrongPassword = await call('/sign-in/email', 'POST', { email: 'alice@example.test', password: 'Wrong-synthetic-password-42' });
+    assert(wrongPassword.status === 401);
     console.log(JSON.stringify({ users }));
   } else if (config.phase === 'signout') {
     for (const user of config.users) assert((await call('/sign-out', 'POST', {}, user.cookie)).status === 200);
