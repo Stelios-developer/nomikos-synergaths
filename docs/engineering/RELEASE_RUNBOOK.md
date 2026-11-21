@@ -15,8 +15,10 @@ is disabled in this synthetic-only scenario. It does not connect to the
 existing vector database or load its credentials. A failed setup, test, timeout or unconfirmed cleanup is a
 failure, not a passing release. A separately network-isolated PDF worker checks
 synthetic CDR/OCR, invalid requests and fail-closed behaviour with the scanner
-unavailable; its OCR timeout is mocked and no actual scanner is used. The test
-reuses local dependencies and does not cover browser-to-auth HTTP deployment,
+unavailable; its OCR timeout is mocked. A second isolated worker uses a real
+ClamAV container with bundled signatures to check clean content, a harmless
+in-memory EICAR sample, CDR and malformed PDF rejection. It neither updates nor
+proves the freshness of signatures. The test reuses local dependencies and does not cover browser-to-auth HTTP deployment,
 verified email, end-to-end PDF upload, n8n, provider calls, Kubernetes or
 production readiness.
 

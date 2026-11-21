@@ -15,6 +15,10 @@ spec.loader.exec_module(verify)
 
 
 class IsolatedCleanupTests(unittest.TestCase):
+    def test_scanner_config_uses_linux_line_endings(self):
+        self.assertIn(b'TCPSocket 3310\n', verify.SCANNER_CONFIG)
+        self.assertNotIn(b'\r', verify.SCANNER_CONFIG)
+
     def test_daemon_failure_does_not_claim_cleanup_succeeded(self):
         run_id = 'nomikos-vector-' + 'b' * 16
         def fake_run(args, **_kwargs):

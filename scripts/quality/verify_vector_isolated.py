@@ -16,7 +16,9 @@ from verify_offline import ROOT, IMAGE, clean_revision, extract_archive, pytest_
 PG_IMAGE = 'pgvector/pgvector:0.8.7-pg17'
 AUTH_IMAGE = 'dmc-release-review-auth:latest'
 PDF_IMAGE = 'dmc-release-review-pdf:latest'
+SCANNER_IMAGE = 'clamav/clamav:1.5.4'
 PASSWORD = 'synthetic-disposable-only'
+SCANNER_CONFIG = b'TCPSocket 3310\nTCPAddr 0.0.0.0\nDatabaseDirectory /var/lib/clamav\nTemporaryDirectory /tmp\n'
 SETUP = r'''
 import psycopg
 from db.migrate import migrate
@@ -36,7 +38,8 @@ def verify():
     pg_id = run(['docker', 'image', 'inspect', '--format', '{{.Id}}', PG_IMAGE])
     auth_id = run(['docker', 'image', 'inspect', '--format', '{{.Id}}', AUTH_IMAGE])
     pdf_id = run(['docker', 'image', 'inspect', '--format', '{{.Id}}', PDF_IMAGE])
-    if any(not re.fullmatch(r'sha256:[0-9a-f]{64}', image) for image in (image_id, pg_id, auth_id, pdf_id)):
+    scanner_id = run(['docker', 'image', 'inspect', '--format', '{{.Id}}', SCANNER_IMAGE])
+    if any(not re.fullmatch(r'sha256:[0-9a-f]{64}', image) for image in (image_id, pg_id, auth_id, pdf_id, scanner_id)):
         raise ValueError('Expected exact local image IDs')
     mounts = pytest_mounts()
     run_id = 'nomikos-vector-' + secrets.token_hex(8)
@@ -47,12 +50,13 @@ def verify():
     archive = folder / 'source.zip'
     report_path = folder / 'report.json'
     report = {'commit': revision, 'run_id': run_id, 'backend_image': image_id,
-              'postgres_image': pg_id, 'auth_image': auth_id, 'pdf_image': pdf_id,
+              'postgres_image': pg_id, 'auth_image': auth_id, 'pdf_image': pdf_id, 'scanner_image': scanner_id,
               'started_utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
               'result': 'running', 'steps': [], 'cleanup': 'not_started',
               'limits': ['synthetic data only', 'reused local images and host pytest, not a clean signed build',
                          'synthetic auth with verification email disabled; not a live HTTP browser flow',
-                         'PDF worker exercised separately with scanner unavailable; OCR timeout mocked; no actual scanner',
+                         'PDF worker and real scanner exercised separately from auth/backend; OCR timeout mocked',
+                         'scanner uses bundled local signatures, not a current signature-update check',
                          'no integrated upload, n8n, browser, real provider or production certification']}
 
     def save():
@@ -151,6 +155,35 @@ def verify():
                '-e', 'PDF_SECURITY_TOKEN=synthetic-only-token-at-least-32-characters', '--entrypoint', 'python', pdf_id,
                '/app/synthetic_pdf_worker.py']
         step('pdf_worker', pdf, timeout=300)
+        scanner_config = folder / 'clamd.conf'
+        scanner_config.write_bytes(SCANNER_CONFIG)
+        scanner_name = run_id + '-scanner'
+        run(['docker', 'run', '-d', '--rm', '--pull=never', '--network', network, '--network-alias', 'clamav',
+             '--name', scanner_name, '--label', f'nomikos.local/verify={run_id}', '--read-only',
+             '--user', '100:101', '--cap-drop=ALL', '--security-opt=no-new-privileges',
+             '--pids-limit', '128', '--memory', '2g', '--tmpfs', '/tmp:rw,nosuid,noexec,size=128m',
+             '--mount', f'type=bind,source={scanner_config},target=/tmp/isolated-clamd.conf,readonly',
+             '--entrypoint', 'clamd', scanner_id, '--foreground', '--config-file=/tmp/isolated-clamd.conf'])
+        for _ in range(150):
+            alive = subprocess.run(['docker', 'inspect', '--format', '{{.State.Running}}', scanner_name], capture_output=True, text=True)
+            if alive.returncode != 0 or alive.stdout.strip() != 'true':
+                raise RuntimeError('Disposable scanner exited during startup')
+            ready = subprocess.run(['docker', 'exec', scanner_name, 'sh', '-c', 'echo PING | nc -w 2 127.0.0.1 3310'], capture_output=True)
+            if ready.returncode == 0 and ready.stdout.strip() == b'PONG':
+                break
+            time.sleep(1)
+        else:
+            raise RuntimeError('Disposable scanner did not become ready')
+        scanner_worker = ['docker', 'run', '--rm', '--pull=never', '--network', network, '--read-only', '--cap-drop=ALL',
+                          '--security-opt=no-new-privileges', '--pids-limit', '64', '--memory', '1g', '--cpus', '2',
+                          '--tmpfs', '/tmp:rw,nosuid,noexec,size=96m',
+                          '--mount', f'type=bind,source={source / "security" / "pdf_worker" / "app.py"},target=/app/app.py,readonly',
+                          '--mount', f'type=bind,source={source / "security" / "pdf_worker" / "pdf_task.py"},target=/app/pdf_task.py,readonly',
+                          '--mount', f'type=bind,source={source / "scripts" / "quality" / "fixtures" / "synthetic_scanner_worker.py"},target=/app/synthetic_scanner_worker.py,readonly',
+                          '-w', '/app', '-e', 'CLAMAV_HOST=clamav', '-e', 'CLAMAV_PORT=3310',
+                          '-e', 'PDF_SECURITY_TOKEN=synthetic-only-token-at-least-32-characters', '--entrypoint', 'python', pdf_id,
+                          '/app/synthetic_scanner_worker.py']
+        step('scanner_worker', scanner_worker, timeout=300)
         step('postgres_integration', base + ['-m', 'pytest', '-p', 'no:cacheprovider', 'backend/integration_tests', '-q', '-rs'])
         report['result'] = 'passed_with_skips' if any(s['skips'] for s in report['steps']) else 'passed'
     except (OSError, ValueError, RuntimeError, TypeError, KeyError, IndexError, subprocess.SubprocessError) as exc:
@@ -161,7 +194,7 @@ def verify():
         # A failed daemon connection is not proof of successful cleanup.
         try:
             run(['docker', 'info', '--format', '{{.ServerVersion}}'])
-            for name in (container, *(run_id + '-' + part for part in ('setup', 'auth_create', 'auth_active', 'auth_expire', 'auth_signout', 'auth_revoked', 'pdf_worker', 'postgres_integration'))):
+            for name in (container, *(run_id + '-' + part for part in ('setup', 'auth_create', 'auth_active', 'auth_expire', 'auth_signout', 'auth_revoked', 'pdf_worker', 'scanner_worker', 'scanner', 'postgres_integration'))):
                 found = run(['docker', 'ps', '-aq', '--filter', f'name=^/{name}$'])
                 if found:
                     label = run(['docker', 'inspect', '--format', '{{index .Config.Labels "nomikos.local/verify"}}', name])
