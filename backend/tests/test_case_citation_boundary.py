@@ -6,6 +6,17 @@ import pytest
 from services import document_case
 
 
+def test_missing_evidence_marks_every_claim_unverifiable_without_model_call():
+    claims = [{'text': 'First', 'citation_ids': ['C1']}, {'text': 'Second', 'citation_ids': ['C2']}]
+    with patch.object(document_case, 'complete') as complete:
+        result = document_case._strict_audit(claims, [])
+    complete.assert_not_called()
+    assert result['passed'] is False
+    assert result['verification_available'] is False
+    assert result['summary'] == {'supported': 0, 'unsupported': 0, 'unverifiable': 2}
+    assert all(item['supported'] is False and item['verification_unavailable'] is True for item in result['sentences'])
+
+
 @pytest.mark.parametrize('citations', [[], ['C99'], ['C1', 'C99'], None, 'C1'])
 def test_missing_or_unknown_case_citations_never_call_model(citations):
     claims = [{'text': 'Synthetic claim', 'citation_ids': citations}]

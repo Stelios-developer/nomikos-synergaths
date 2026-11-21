@@ -586,7 +586,7 @@ def _strict_audit(claims: list[dict], evidence: list[dict]) -> dict:
             "verification_available": False,
             "passed": False,
             "sentences": [
-                {**claim, "supported": False, "reason": "No document evidence was available."}
+                {**claim, "supported": False, "reason": "No document evidence was available.", "verification_unavailable": True}
                 for claim in claims
             ],
             "summary": {"supported": 0, "unsupported": 0, "unverifiable": len(claims)},
