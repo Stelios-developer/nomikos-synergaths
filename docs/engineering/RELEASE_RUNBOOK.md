@@ -1,5 +1,16 @@
 # Local-to-production release runbook
 
+For synthetic PostgreSQL/pgvector, RLS and durable-job integration, run
+`python scripts/quality/verify_vector_isolated.py` from a clean committed
+checkout. It uses pre-existing local backend and pgvector images, creates a
+uniquely named internal Docker network and disposable database, and records
+the exact source revision, local image IDs, skips and cleanup in ignored
+`output/verification/`. It does not connect to the existing vector database or
+load its credentials. A failed setup, test, timeout or unconfirmed cleanup is a
+failure, not a passing release. The test uses reused local dependencies, and
+does not cover real auth cookies, PDF/OCR, n8n, provider calls, Kubernetes or
+production readiness.
+
 Status: **not approved for production**. This runbook records the order and
 proof required to release without treating a local test as hosted evidence.
 It does not create infrastructure, enable billable services, or authorize paid
