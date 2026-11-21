@@ -52,3 +52,13 @@ and prints only hashes and counts. It neither verifies the reviewer is
 independent nor confirms quotes, absence, source support or model output. The
 pilot remains development-only; it is not a closed holdout. No human review is
 provided by this tool. Keep review files in ignored `output/`, not in Git.
+
+To prepare an unlabelled packet for a reviewer, create an existing ignored
+`output/` directory and run `python evaluation/prepare_blind_review.py --corpus
+<pilot-directory> --destination <new-directory-inside-output>`. It verifies
+the pilot hashes and writes document IDs, filenames, hashes, copies of the PDFs
+and blank review fields, without copying the template's expected facts. Supply
+the packet without the original manifest or retrieval outputs. The
+reviewer fills in the fields and uses `validate_pilot_review.py` for structural
+validation. The packet cannot verify that the reviewer is independent, that a
+quote supports a label, or that the underlying development corpus is a holdout.
