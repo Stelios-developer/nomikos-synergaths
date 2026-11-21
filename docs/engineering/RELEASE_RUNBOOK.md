@@ -22,6 +22,14 @@ proves the freshness of signatures. The test reuses local dependencies and does 
 verified email, end-to-end PDF upload, n8n, provider calls, Kubernetes or
 production readiness.
 
+`python scripts/quality/verify_n8n_isolated.py` imports a test copy of the
+actual workflow into disposable local n8n and exercises the backend transport
+against a synthetic mock on an internal Docker network. It checks missing-header
+rejection, stage order and the human-review branch. Integration destinations
+are rewritten to the mock and branch-only test markers are added. It does not
+exercise real backend endpoints, PDF upload, a provider or a browser, and does
+not read existing n8n state. It removes only resources with its unique label.
+
 Legacy encrypted-backup verification and its restore drill share an inventory
 validator that rejects duplicate names or manifest keys, links, unsafe paths,
 missing members and checksum mismatches. This is an archive-integrity guard,
