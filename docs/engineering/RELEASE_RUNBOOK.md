@@ -12,9 +12,12 @@ enforces distinct workspace-scoped vector results, and rejects an expired
 session and a separate signed-out session. Cookies remain in memory rather than test logs. Email verification
 is disabled in this synthetic-only scenario. It does not connect to the
 existing vector database or load its credentials. A failed setup, test, timeout or unconfirmed cleanup is a
-failure, not a passing release. The test uses reused local dependencies, and
-does not cover a browser-to-auth HTTP deployment, verified email, PDF/OCR, n8n,
-provider calls, Kubernetes or production readiness.
+failure, not a passing release. A separately network-isolated PDF worker checks
+synthetic CDR/OCR, invalid requests and fail-closed behaviour with the scanner
+unavailable; its OCR timeout is mocked and no actual scanner is used. The test
+reuses local dependencies and does not cover browser-to-auth HTTP deployment,
+verified email, end-to-end PDF upload, n8n, provider calls, Kubernetes or
+production readiness.
 
 Legacy encrypted-backup verification and its restore drill share an inventory
 validator that rejects duplicate names or manifest keys, links, unsafe paths,

@@ -15,6 +15,7 @@ from verify_offline import ROOT, IMAGE, clean_revision, extract_archive, pytest_
 
 PG_IMAGE = 'pgvector/pgvector:0.8.7-pg17'
 AUTH_IMAGE = 'dmc-release-review-auth:latest'
+PDF_IMAGE = 'dmc-release-review-pdf:latest'
 PASSWORD = 'synthetic-disposable-only'
 SETUP = r'''
 import psycopg
@@ -34,7 +35,8 @@ def verify():
     image_id = run(['docker', 'image', 'inspect', '--format', '{{.Id}}', IMAGE])
     pg_id = run(['docker', 'image', 'inspect', '--format', '{{.Id}}', PG_IMAGE])
     auth_id = run(['docker', 'image', 'inspect', '--format', '{{.Id}}', AUTH_IMAGE])
-    if any(not re.fullmatch(r'sha256:[0-9a-f]{64}', image) for image in (image_id, pg_id, auth_id)):
+    pdf_id = run(['docker', 'image', 'inspect', '--format', '{{.Id}}', PDF_IMAGE])
+    if any(not re.fullmatch(r'sha256:[0-9a-f]{64}', image) for image in (image_id, pg_id, auth_id, pdf_id)):
         raise ValueError('Expected exact local image IDs')
     mounts = pytest_mounts()
     run_id = 'nomikos-vector-' + secrets.token_hex(8)
@@ -45,11 +47,13 @@ def verify():
     archive = folder / 'source.zip'
     report_path = folder / 'report.json'
     report = {'commit': revision, 'run_id': run_id, 'backend_image': image_id,
-              'postgres_image': pg_id, 'auth_image': auth_id, 'started_utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'postgres_image': pg_id, 'auth_image': auth_id, 'pdf_image': pdf_id,
+              'started_utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
               'result': 'running', 'steps': [], 'cleanup': 'not_started',
               'limits': ['synthetic data only', 'reused local images and host pytest, not a clean signed build',
                          'synthetic auth with verification email disabled; not a live HTTP browser flow',
-                         'no PDF worker, n8n, browser, real provider or production certification']}
+                         'PDF worker exercised separately with scanner unavailable; OCR timeout mocked; no actual scanner',
+                         'no integrated upload, n8n, browser, real provider or production certification']}
 
     def save():
         report_path.write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
@@ -137,6 +141,16 @@ def verify():
         exchange('auth_expire', auth_backend, {'phase': 'expired_first', 'users': users})
         exchange('auth_signout', auth, {'phase': 'signout', 'users': [users[1]]}, json_output=True)
         exchange('auth_revoked', auth_backend, {'phase': 'revoked', 'users': users})
+        pdf = ['docker', 'run', '--rm', '--pull=never', '--network=none', '--read-only', '--cap-drop=ALL',
+               '--security-opt=no-new-privileges', '--pids-limit', '64', '--memory', '1g', '--cpus', '2',
+               '--tmpfs', '/tmp:rw,nosuid,noexec,size=96m',
+               '--mount', f'type=bind,source={source / "security" / "pdf_worker" / "app.py"},target=/app/app.py,readonly',
+               '--mount', f'type=bind,source={source / "security" / "pdf_worker" / "pdf_task.py"},target=/app/pdf_task.py,readonly',
+               '--mount', f'type=bind,source={source / "scripts" / "quality" / "fixtures" / "synthetic_pdf_worker.py"},target=/app/synthetic_pdf_worker.py,readonly',
+               '-w', '/app', '-e', 'CLAMAV_HOST=127.0.0.1', '-e', 'CLAMAV_PORT=1',
+               '-e', 'PDF_SECURITY_TOKEN=synthetic-only-token-at-least-32-characters', '--entrypoint', 'python', pdf_id,
+               '/app/synthetic_pdf_worker.py']
+        step('pdf_worker', pdf, timeout=300)
         step('postgres_integration', base + ['-m', 'pytest', '-p', 'no:cacheprovider', 'backend/integration_tests', '-q', '-rs'])
         report['result'] = 'passed_with_skips' if any(s['skips'] for s in report['steps']) else 'passed'
     except (OSError, ValueError, RuntimeError, TypeError, KeyError, IndexError, subprocess.SubprocessError) as exc:
@@ -147,7 +161,7 @@ def verify():
         # A failed daemon connection is not proof of successful cleanup.
         try:
             run(['docker', 'info', '--format', '{{.ServerVersion}}'])
-            for name in (container, *(run_id + '-' + part for part in ('setup', 'auth_create', 'auth_active', 'auth_expire', 'auth_signout', 'auth_revoked', 'postgres_integration'))):
+            for name in (container, *(run_id + '-' + part for part in ('setup', 'auth_create', 'auth_active', 'auth_expire', 'auth_signout', 'auth_revoked', 'pdf_worker', 'postgres_integration'))):
                 found = run(['docker', 'ps', '-aq', '--filter', f'name=^/{name}$'])
                 if found:
                     label = run(['docker', 'inspect', '--format', '{{index .Config.Labels "nomikos.local/verify"}}', name])
