@@ -1,0 +1,38 @@
+{
+  "commit": "acc7054b9a8a9a9e5caa82e543b954ea74b3a4ae",
+  "run_id": "nomikos-n8n-3523708dd0ba3727",
+  "backend_image": "sha256:250c822ee7a11df0dd57307f4a568fa61ba2a477bf086c782112c3207f12cceb",
+  "n8n_image": "sha256:906dd7fb0a2f23869001d1767168359489c518ff34d4f67427abf2dc59e868fe",
+  "started_utc": "2026-11-22T09:47:47.939823+00:00",
+  "steps": [
+    {
+      "name": "import",
+      "status": "passed",
+      "exit_code": 0
+    },
+    {
+      "name": "publish",
+      "status": "passed",
+      "exit_code": 0
+    },
+    {
+      "name": "workflow",
+      "status": "passed",
+      "exit_code": 0
+    }
+  ],
+  "result": "passed",
+  "cleanup": "confirmed_or_never_created",
+  "limits": [
+    "synthetic local mock endpoints, no PDF, AI provider or production data",
+    "workflow HTTP destinations rewritten to an isolated synthetic backend; finalize branches carry test-only markers",
+    "reused local images, no signed provenance or deployed-system certification"
+  ],
+  "original_workflow_sha256": "8483bf3540db40f4ef2d1171bd0381907d14e9d0972521472f5a41c56e14086c",
+  "test_workflow_sha256": "99ff16c7c828bca8e7d13e6233416e939ef1cb0e1d39da2813877c5b02df3d8a",
+  "fixture_sha256": {
+    "synthetic_n8n_backend.py": "d11c324e8343d6f3dd146fa9c816d0da8c7ae1cf143d012e8b22dc1738bbb2c5",
+    "synthetic_n8n_client.py": "f21bc74527b89651ef9eed3a6f37507637e5bcea4ac71d584b0303eba14788ce"
+  },
+  "finished_utc": "2026-11-22T09:48:51.598503+00:00"
+}

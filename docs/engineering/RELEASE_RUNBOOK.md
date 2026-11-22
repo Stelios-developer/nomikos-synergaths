@@ -29,6 +29,11 @@ rejection, stage order and the human-review branch. Integration destinations
 are rewritten to the mock and branch-only test markers are added. It does not
 exercise real backend endpoints, PDF upload, a provider or a browser, and does
 not read existing n8n state. It removes only resources with its unique label.
+The fixture refuses workflow nodes outside its explicit five-type allowlist and
+nodes with configured credentials. On 22 November 2026 the isolated workflow
+test passed at commit `acc7054`; the [report](evidence/n8n-acc7054-2026-11-22.json)
+records image IDs, workflow hashes and cleanup. This is not a full application
+integration test and does not prove image provenance.
 
 Legacy encrypted-backup verification and its restore drill share an inventory
 validator that rejects duplicate names or manifest keys, links, unsafe paths,
