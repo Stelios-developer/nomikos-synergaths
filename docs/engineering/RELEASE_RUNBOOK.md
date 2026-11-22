@@ -89,6 +89,13 @@ The report's legacy `no integrated upload` limit refers to absence of a full
 browser/n8n deployment; the ASGI upload path itself did run. There is no real
 provider, browser, n8n in this path, verified email or signed image provenance.
 
+At `22d8ff5`, the authenticated ASGI path also tested a stopped scanner: the
+upload returned 503 and no new document appeared in the owner's listing. The
+same isolated run repeated the successful upload, cross-user checks, 39 database
+integration tests and confirmed cleanup
+([report](evidence/authenticated-outage-22d8ff5-2026-11-22.json)). This remains
+a synthetic TestClient test without a real browser, n8n or external provider.
+
 At `e0087b0`, after distinguishing storage outages during publication, the
 offline suite passed 341 backend tests with one Linux DPAPI skip
 ([report](evidence/offline-e0087b0-2026-11-22.json)); a separate synthetic
