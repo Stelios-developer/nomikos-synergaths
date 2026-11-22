@@ -217,12 +217,13 @@ def verify():
             '-e', 'PDF_SECURITY_TOKEN=synthetic-only-token-at-least-32-characters',
         ] + base[base.index('--entrypoint'):] + ['/project/scripts/quality/fixtures/synthetic_authenticated_upload.py']
         exchange('authenticated_upload', authenticated_upload, {'users': users})
-        exchange('auth_expire', auth_backend, {'phase': 'expired_first', 'users': users})
-        exchange('auth_signout', auth, {'phase': 'signout', 'users': [users[1]]}, json_output=True)
-        exchange('auth_revoked', auth_backend, {'phase': 'revoked', 'users': users})
         # Scanner is test-owned and deliberately stopped to check fail-closed ingress.
         run(['docker', 'stop', scanner_name], timeout=60)
         step('pdf_http_scanner_down', client + ['scanner_down'], timeout=180)
+        exchange('authenticated_upload_scanner_down', authenticated_upload + ['scanner_down'], {'users': users})
+        exchange('auth_expire', auth_backend, {'phase': 'expired_first', 'users': users})
+        exchange('auth_signout', auth, {'phase': 'signout', 'users': [users[1]]}, json_output=True)
+        exchange('auth_revoked', auth_backend, {'phase': 'revoked', 'users': users})
         step('postgres_integration', base + ['-m', 'pytest', '-p', 'no:cacheprovider', 'backend/integration_tests', '-q', '-rs'])
         report['result'] = 'passed_with_skips' if any(s['skips'] for s in report['steps']) else 'passed'
     except (OSError, ValueError, RuntimeError, TypeError, KeyError, IndexError, subprocess.SubprocessError) as exc:
@@ -233,7 +234,7 @@ def verify():
         # A failed daemon connection is not proof of successful cleanup.
         try:
             run(['docker', 'info', '--format', '{{.ServerVersion}}'])
-            for name in (container, *(run_id + '-' + part for part in ('setup', 'auth_create', 'auth_active', 'auth_expire', 'auth_signout', 'auth_revoked', 'pdf_worker', 'scanner_worker', 'http-worker', 'pdf_http_ready', 'authenticated_upload', 'pdf_http_scanner_down', 'scanner', 'postgres_integration'))):
+            for name in (container, *(run_id + '-' + part for part in ('setup', 'auth_create', 'auth_active', 'auth_expire', 'auth_signout', 'auth_revoked', 'pdf_worker', 'scanner_worker', 'http-worker', 'pdf_http_ready', 'authenticated_upload', 'authenticated_upload_scanner_down', 'pdf_http_scanner_down', 'scanner', 'postgres_integration'))):
                 found = run(['docker', 'ps', '-aq', '--filter', f'name=^/{name}$'])
                 if found:
                     label = run(['docker', 'inspect', '--format', '{{index .Config.Labels "nomikos.local/verify"}}', name])

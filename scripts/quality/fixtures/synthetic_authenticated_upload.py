@@ -24,9 +24,18 @@ with fitz.open() as document:
 
 headers = lambda user: {'cookie': user['cookie'], 'origin': 'http://localhost:5173',
                         'x-csrf-protection': 'nexus-v1'}
-name = 'isolated-upload.pdf'
+mode = sys.argv[1] if len(sys.argv) > 1 else 'ready'
+assert mode in ('ready', 'scanner_down')
+name = 'isolated-upload.pdf' if mode == 'ready' else 'unavailable-upload.pdf'
 with TestClient(main.app) as client:
     result = client.post('/upload', headers=headers(users[0]), files={'file': (name, content, 'application/pdf')})
+    if mode == 'scanner_down':
+        assert result.status_code == 503, f'outage status {result.status_code}'
+        listing = client.get('/documents', headers=headers(users[0]))
+        assert listing.status_code == 200
+        assert name not in [row['filename'] for row in listing.json()]
+        print('Authenticated upload refused scanner outage without publishing a document.')
+        raise SystemExit(0)
     assert result.status_code == 200, f'upload status {result.status_code}'
     first = client.get('/documents', headers=headers(users[0]))
     second = client.get('/documents', headers=headers(users[1]))
