@@ -10,6 +10,12 @@ checks. It does **not** verify signatures, image provenance, report content or
 the truth of declared statuses. It is not a production release gate; use only
 synthetic reports without secrets.
 
+At commit `0124cf3`, offline verification passed with 332 backend tests and
+one Linux DPAPI skip ([report](evidence/offline-0124cf3-2026-11-22.json));
+the separate synthetic Windows DPAPI check passed at that same commit
+([report](evidence/windows-backup-0124cf3-2026-11-22.json)). These checks
+do not verify a coordinated restore, off-machine backup or signed provenance.
+
 For synthetic PostgreSQL/pgvector, RLS, durable jobs and real Better Auth
 signed-cookie integration, run
 `python scripts/quality/verify_vector_isolated.py` from a clean committed
