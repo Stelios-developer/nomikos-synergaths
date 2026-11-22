@@ -1,0 +1,79 @@
+{
+  "commit": "1d1d0103d212b3c5e80497be0bd36022de306e3a",
+  "run_id": "nomikos-vector-496eaa404d25dd83",
+  "backend_image": "sha256:250c822ee7a11df0dd57307f4a568fa61ba2a477bf086c782112c3207f12cceb",
+  "postgres_image": "sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d",
+  "auth_image": "sha256:faefceef07e53459e965871a8e52fed5f701172599f49c60ecd80d67c8e57a59",
+  "pdf_image": "sha256:2d8ab7437f8d295d66426720d67a3b34a272213aa869fe7c028acaa8193fa280",
+  "scanner_image": "sha256:0e31ce089574268aefa0b543767d66b70240ab51ed49eec53e07f18d5629d817",
+  "started_utc": "2026-11-22T14:43:49.197025+00:00",
+  "result": "passed",
+  "steps": [
+    {
+      "name": "setup",
+      "exit_code": 0,
+      "skips": []
+    },
+    {
+      "name": "auth_create",
+      "exit_code": 0,
+      "skips": []
+    },
+    {
+      "name": "auth_active",
+      "exit_code": 0,
+      "skips": []
+    },
+    {
+      "name": "auth_expire",
+      "exit_code": 0,
+      "skips": []
+    },
+    {
+      "name": "auth_signout",
+      "exit_code": 0,
+      "skips": []
+    },
+    {
+      "name": "auth_revoked",
+      "exit_code": 0,
+      "skips": []
+    },
+    {
+      "name": "pdf_worker",
+      "exit_code": 0,
+      "skips": []
+    },
+    {
+      "name": "scanner_worker",
+      "exit_code": 0,
+      "skips": []
+    },
+    {
+      "name": "pdf_http_ready",
+      "exit_code": 0,
+      "skips": []
+    },
+    {
+      "name": "pdf_http_scanner_down",
+      "exit_code": 0,
+      "skips": []
+    },
+    {
+      "name": "postgres_integration",
+      "exit_code": 0,
+      "skips": []
+    }
+  ],
+  "cleanup": "confirmed_or_never_created",
+  "limits": [
+    "synthetic data only",
+    "reused local images and host pytest, not a clean signed build",
+    "synthetic auth with verification email disabled; not a live HTTP browser flow",
+    "PDF ingress client, worker and scanner use a synthetic HTTP path; not a full authenticated upload",
+    "OCR timeout mocked",
+    "scanner uses bundled local signatures, not a current signature-update check",
+    "no integrated upload, n8n, browser, real provider or production certification"
+  ],
+  "finished_utc": "2026-11-22T14:45:03.000543+00:00"
+}

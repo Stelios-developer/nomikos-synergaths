@@ -55,6 +55,13 @@ scanner verdict while malware and invalid input remain rejected. The separate
 Windows DPAPI skip. This HTTP client test is not a browser-authenticated upload,
 does not include n8n in the same path, and reuses unsigned local images.
 
+At commit `1d1d010`, after rejecting truncated scanner verdicts, the same
+isolated HTTP ingress, real local scanner, scanner outage, synthetic auth and
+39 PostgreSQL integration checks passed
+([report](evidence/pdf-http-1d1d010-2026-11-22.json)). Scanner signatures were
+not refreshed, images were reused without signed provenance, and this remains
+separate from browser-authenticated upload and n8n integration.
+
 `python scripts/quality/verify_n8n_isolated.py` imports a test copy of the
 actual workflow into disposable local n8n and exercises the backend transport
 against a synthetic mock on an internal Docker network. It checks missing-header
