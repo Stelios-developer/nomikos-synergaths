@@ -53,6 +53,15 @@ class BlindReviewPacketTests(unittest.TestCase):
             prepare(self.corpus, self.output / 'blind', self.output)
         self.assertFalse((self.output / 'blind').exists())
 
+    def test_ambiguous_manifest_is_rejected_before_creating_packet(self):
+        path = self.corpus / 'manifest.json'
+        raw = path.read_text(encoding='utf-8')
+        path.write_text(raw.replace('"version": "pilot-1"', '"version": "other", "version": "pilot-1"', 1), encoding='utf-8')
+        target = self.output / 'blind'
+        with self.assertRaisesRegex(ValueError, 'Duplicate JSON key'):
+            prepare(self.corpus, target, self.output)
+        self.assertFalse(target.exists())
+
 
 if __name__ == '__main__':
     unittest.main()

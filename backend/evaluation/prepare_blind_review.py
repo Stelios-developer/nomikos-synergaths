@@ -10,6 +10,7 @@ from pathlib import Path
 import shutil
 
 from pilot_manifest import validate_manifest
+from validate_pilot_review import strict_json
 
 ROOT = Path(__file__).resolve().parents[2]
 FIELDS = ('owner', 'approver', 'deadline')
@@ -21,7 +22,7 @@ def prepare(corpus: Path, destination: Path, output_root: Path):
     if destination.is_symlink() or not destination.resolve().is_relative_to(root) or destination.resolve() == root:
         raise ValueError('Review packet must be a new directory inside the designated output root')
     raw = (source / 'manifest.json').read_bytes()
-    manifest = json.loads(raw)
+    manifest = strict_json(raw)
     if not validate_manifest(source, manifest):
         raise ValueError('Review requires a fully hash-verified pilot corpus')
     digest = hashlib.sha256(raw).hexdigest()
