@@ -1,6 +1,7 @@
 """Focused render checks only; these are not cluster or CNI tests."""
 from pathlib import Path
 import copy
+import hashlib
 import importlib.util
 import subprocess
 import sys
@@ -90,6 +91,16 @@ class PdfEndpointTests(unittest.TestCase):
         with patch.object(drill, 'execute', return_value=self.response([{'conditions': {'ready': True}}])):
             with self.assertRaisesRegex(RuntimeError, 'Unexpected ready service endpoint'):
                 drill.wait_worker_endpoint(['kubectl'], None)
+
+    def test_worker_source_identity_rejects_stale_image(self):
+        hashes = {name: hashlib.sha256((ROOT / 'security/pdf_worker' / name).read_bytes()).hexdigest()
+                  for name in ('app.py', 'pdf_task.py')}
+        with patch.object(drill, 'execute', return_value=json.dumps(hashes)):
+            self.assertEqual(drill.verify_worker_sources(['kubectl'], 'worker'), hashes)
+        hashes['app.py'] = '0' * 64
+        with patch.object(drill, 'execute', return_value=json.dumps(hashes)):
+            with self.assertRaisesRegex(ValueError, 'do not match'):
+                drill.verify_worker_sources(['kubectl'], 'worker')
 
 
 if __name__ == '__main__':

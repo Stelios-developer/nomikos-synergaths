@@ -26,3 +26,5 @@ establish that the images were built from that commit. A cleanup wrapper
 failed after the drill; the owned test cluster was subsequently removed
 manually and the paused Padel cluster restarted. This result covers only the
 slice described above, not the complete Kubernetes deployment or recovery.
+
+On 2026-11-22, at `fc05015`, the [new drill](../../../docs/engineering/evidence/k8s-pdf-fc05015-2026-11-22.json) passed scanner outage, service endpoint withdrawal and restoration, and replacement of the worker pod with a successful synthetic PDF check. An [earlier attempt](../../../docs/engineering/evidence/k8s-pdf-stale-fc05015-2026-11-22.json) failed because the reused local worker image was stale: it returned 422 rather than 503 on scanner outage. The successful run used an offline derived image with current worker files copied over reused local dependencies, not a clean or signed build. NetworkPolicy enforcement and full application integration were not tested. The updated drill checks both worker source file hashes inside the running pod against the checkout; that check does not verify dependencies or image provenance.

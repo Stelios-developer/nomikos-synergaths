@@ -63,6 +63,19 @@ def wait_worker_endpoint(k, expected_uid, timeout=90):
     raise RuntimeError('Worker service endpoint did not converge')
 
 
+def verify_worker_sources(k, worker):
+    """Refuse stale worker source files; dependency provenance is not verified."""
+    names = ('app.py', 'pdf_task.py')
+    expected = {name: hashlib.sha256((ROOT / 'security/pdf_worker' / name).read_bytes()).hexdigest()
+                for name in names}
+    code = ("import hashlib,json; print(json.dumps({n:hashlib.sha256(open('/app/'+n,'rb').read()).hexdigest() "
+            "for n in ('app.py','pdf_task.py')}))")
+    actual = json.loads(execute(k + ['exec', worker, '--', 'python', '-c', code]))
+    if actual != expected:
+        raise ValueError('PDF worker image source files do not match the checkout')
+    return actual
+
+
 def drill(cluster, kubeconfig):
     revision = clean_revision()
     path = validate_target(cluster, kubeconfig)
@@ -106,6 +119,8 @@ def drill(cluster, kubeconfig):
             raise RuntimeError('Expected exactly one PDF worker pod')
         worker = worker_pods[0]['metadata']['name']
         worker_uid = worker_pods[0]['metadata']['uid']
+        report['worker_source_sha256'] = verify_worker_sources(k, worker)
+        report['steps'].append({'name': 'worker_source_match', 'status': 'passed'}); save()
         wait_worker_endpoint(k, worker_uid)
         report['steps'].append({'name': 'worker_endpoint_ready', 'status': 'passed'}); save()
         client = (ROOT / 'scripts/quality/fixtures/k8s_pdf_client.py').read_text(encoding='utf-8')
