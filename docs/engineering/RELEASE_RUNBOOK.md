@@ -42,6 +42,12 @@ commit passed the cookie, scanner and 39 PostgreSQL integration tests
 ([report](evidence/vector-f6d2aeb-2026-11-22.json)). These were separate
 fixtures: they do not constitute one integrated upload-to-workflow test.
 
+At commit `f403185`, offline verification passed with 332 backend tests and
+one Windows DPAPI skip inside Linux ([report](evidence/offline-f403185-2026-11-22.json)).
+The separate synthetic Windows DPAPI and encrypted-backup check passed on the
+same commit ([report](evidence/windows-backup-f403185-2026-11-22.json)). This
+does not prove off-machine recovery or a coordinated restore of all stores.
+
 Legacy encrypted-backup verification and its restore drill share an inventory
 validator that rejects duplicate names or manifest keys, links, unsafe paths,
 missing members and checksum mismatches. This is an archive-integrity guard,
