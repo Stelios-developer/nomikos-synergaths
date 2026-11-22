@@ -1,7 +1,7 @@
 # Local-to-production release runbook
 
 `python scripts/quality/verify_release_bundle.py --bundle <directory>
---manifest <manifest.json>` checks local evidence-file hashes and declared check
+--manifest <manifest.json> --require-check browser` checks local evidence-file hashes and declared check
 statuses against each JSON report's `commit` and `result` fields. The JSON contains `commit` (full Git hash), `artifacts` entries
 `{"path":"report.json","sha256":"<64 hex>"}`, and `checks` entries
 `{"id":"browser","status":"passed","artifact":"report.json"}`.
@@ -10,6 +10,10 @@ checks. A report with a different commit, failed result or skips cannot be
 declared passed. It does **not** verify signatures, image provenance, report
 authenticity or the truth of declared results. It is not a production release gate; use only
 synthetic reports without secrets.
+
+Repeat `--require-check` for every required check. Missing checks make the
+result incomplete; the operator-supplied list is not itself a production
+policy or evidence of report authenticity.
 
 At commit `0124cf3`, offline verification passed with 332 backend tests and
 one Linux DPAPI skip ([report](evidence/offline-0124cf3-2026-11-22.json));

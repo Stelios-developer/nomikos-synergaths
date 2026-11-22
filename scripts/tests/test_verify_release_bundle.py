@@ -22,9 +22,17 @@ class ReleaseBundleTests(unittest.TestCase):
                          'checks': [{'id': 'test', 'status': 'passed', 'artifact': 'report.json'}]}
 
     def test_matching_bundle_and_incomplete_checks(self):
-        self.assertEqual(verify(self.root, self.manifest)['result'], 'passed')
+        self.assertEqual(verify(self.root, self.manifest, ['test'])['result'], 'passed')
         self.manifest['checks'][0]['status'] = 'skipped'
-        self.assertEqual(verify(self.root, self.manifest)['result'], 'incomplete')
+        self.assertEqual(verify(self.root, self.manifest, ['test'])['result'], 'incomplete')
+
+    def test_required_check_cannot_be_silently_omitted(self):
+        report = verify(self.root, self.manifest, ['test', 'browser'])
+        self.assertEqual(report['result'], 'incomplete')
+        self.assertEqual(report['missing_required_checks'], ['browser'])
+        for required in ([], ['test', 'test'], ['invalid id']):
+            with self.subTest(required=required), self.assertRaises(ValueError):
+                verify(self.root, self.manifest, required)
 
     def test_tampering_unsafe_paths_and_unreferenced_reports_fail(self):
         variants = []
@@ -37,7 +45,7 @@ class ReleaseBundleTests(unittest.TestCase):
             else: data['checks'].append(copy.deepcopy(data['checks'][0]))
             variants.append(data)
         for data in variants:
-            with self.subTest(data=data), self.assertRaises(ValueError): verify(self.root, data)
+            with self.subTest(data=data), self.assertRaises(ValueError): verify(self.root, data, ['test'])
 
     def test_duplicate_json_keys_fail(self):
         with self.assertRaises(ValueError):
@@ -46,7 +54,7 @@ class ReleaseBundleTests(unittest.TestCase):
     def test_symlink_artifact_is_rejected(self):
         with patch.object(Path, 'is_symlink', return_value=True):
             with self.assertRaisesRegex(ValueError, 'Symlink'):
-                verify(self.root, self.manifest)
+                verify(self.root, self.manifest, ['test'])
 
     def test_cannot_declare_a_failed_or_other_commit_report_as_passed(self):
         for commit, result in (('a' * 40, 'failed'), ('b' * 40, 'passed'), ('a' * 40, 'passed_with_skips')):
@@ -55,7 +63,7 @@ class ReleaseBundleTests(unittest.TestCase):
             manifest = copy.deepcopy(self.manifest)
             manifest['artifacts'][0]['sha256'] = hashlib.sha256(raw).hexdigest()
             with self.subTest(commit=commit, result=result), self.assertRaises(ValueError):
-                verify(self.root, manifest)
+                verify(self.root, manifest, ['test'])
 
 
 if __name__ == '__main__':

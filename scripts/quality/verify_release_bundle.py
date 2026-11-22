@@ -19,7 +19,7 @@ def unique_object(pairs):
     return result
 
 
-def verify(bundle, manifest):
+def verify(bundle, manifest, required_checks):
     root = bundle.resolve(strict=True)
     if not root.is_dir() or not isinstance(manifest, dict):
         raise ValueError('Invalid bundle or manifest')
@@ -56,6 +56,10 @@ def verify(bundle, manifest):
     checks = manifest['checks']
     if not isinstance(checks, list) or not checks:
         raise ValueError('At least one check is required')
+    if (not isinstance(required_checks, (list, tuple)) or not required_checks
+            or any(not isinstance(name, str) or not re.fullmatch(r'[a-z0-9_-]{1,80}', name) for name in required_checks)
+            or len(set(required_checks)) != len(required_checks)):
+        raise ValueError('A unique nonempty required check list is required')
     names = set()
     for check in checks:
         if (not isinstance(check, dict) or set(check) != {'id', 'status', 'artifact'}
@@ -77,8 +81,10 @@ def verify(bundle, manifest):
             raise ValueError('Invalid check report commit or result')
         if check['status'] == 'passed' and report['result'] != 'passed':
             raise ValueError('Passing declaration contradicts report')
+    missing = sorted(set(required_checks) - names)
     return {'commit': manifest['commit'], 'artifacts_verified': len(paths), 'checks': len(checks),
-            'result': 'passed' if all(item['status'] == 'passed' for item in checks) else 'incomplete',
+            'missing_required_checks': missing,
+            'result': 'passed' if not missing and all(item['status'] == 'passed' for item in checks) else 'incomplete',
             'limits': ['checks report commit and result fields only', 'no signature or provenance verification',
                        'does not prove report authenticity, image identity, or test semantics']}
 
@@ -87,10 +93,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--bundle', type=Path, required=True)
     parser.add_argument('--manifest', type=Path, required=True)
+    parser.add_argument('--require-check', action='append', required=True,
+                        help='required check identifier; repeat for each check')
     args = parser.parse_args()
     try:
         manifest = json.loads(args.manifest.read_text(encoding='utf-8-sig'), object_pairs_hook=unique_object)
-        result = verify(args.bundle, manifest)
+        result = verify(args.bundle, manifest, args.require_check)
     except (OSError, ValueError, TypeError, KeyError) as exc:
         parser.exit(1, f'Bundle verification failed: {type(exc).__name__}\n')
     print(json.dumps(result, indent=2))
