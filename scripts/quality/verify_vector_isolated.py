@@ -55,7 +55,8 @@ def verify():
               'result': 'running', 'steps': [], 'cleanup': 'not_started',
               'limits': ['synthetic data only', 'reused local images and host pytest, not a clean signed build',
                          'synthetic auth with verification email disabled; not a live HTTP browser flow',
-                         'PDF worker and real scanner exercised separately from auth/backend; OCR timeout mocked',
+                         'PDF ingress client, worker and scanner use a synthetic HTTP path; not a full authenticated upload',
+                         'OCR timeout mocked',
                          'scanner uses bundled local signatures, not a current signature-update check',
                          'no integrated upload, n8n, browser, real provider or production certification']}
 
@@ -184,6 +185,32 @@ def verify():
                           '-e', 'PDF_SECURITY_TOKEN=synthetic-only-token-at-least-32-characters', '--entrypoint', 'python', pdf_id,
                           '/app/synthetic_scanner_worker.py']
         step('scanner_worker', scanner_worker, timeout=300)
+        worker_name = run_id + '-http-worker'
+        run(['docker', 'run', '-d', '--rm', '--pull=never', '--network', network, '--network-alias', 'pdf-worker',
+             '--name', worker_name, '--label', f'nomikos.local/verify={run_id}', '--read-only', '--cap-drop=ALL',
+             '--security-opt=no-new-privileges', '--pids-limit', '64', '--memory', '1g', '--cpus', '2',
+             '--tmpfs', '/tmp:rw,nosuid,noexec,size=96m',
+             '--mount', f'type=bind,source={source / "security" / "pdf_worker" / "app.py"},target=/app/app.py,readonly',
+             '--mount', f'type=bind,source={source / "security" / "pdf_worker" / "pdf_task.py"},target=/app/pdf_task.py,readonly',
+             '-w', '/app', '-e', 'CLAMAV_HOST=clamav', '-e', 'CLAMAV_PORT=3310',
+             '-e', 'PDF_SECURITY_TOKEN=synthetic-only-token-at-least-32-characters', '--entrypoint', 'python', pdf_id,
+             '-m', 'uvicorn', 'app:app', '--host', '0.0.0.0', '--port', '8080', '--workers', '1'])
+        for _ in range(60):
+            ready = subprocess.run(['docker', 'exec', worker_name, 'python', '-c',
+                                    "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=2)"], capture_output=True)
+            if ready.returncode == 0:
+                break
+            time.sleep(1)
+        else:
+            raise RuntimeError('Disposable PDF HTTP worker did not become ready')
+        client = base[:base.index('--entrypoint')] + [
+            '-e', 'APP_ENV=production', '-e', 'PDF_SECURITY_URL=http://pdf-worker:8080',
+            '-e', 'PDF_SECURITY_TOKEN=synthetic-only-token-at-least-32-characters',
+        ] + base[base.index('--entrypoint'):] + ['/project/scripts/quality/fixtures/synthetic_pdf_http.py']
+        step('pdf_http_ready', client + ['ready'], timeout=300)
+        # Scanner is test-owned and deliberately stopped to check fail-closed ingress.
+        run(['docker', 'stop', scanner_name], timeout=60)
+        step('pdf_http_scanner_down', client + ['scanner_down'], timeout=180)
         step('postgres_integration', base + ['-m', 'pytest', '-p', 'no:cacheprovider', 'backend/integration_tests', '-q', '-rs'])
         report['result'] = 'passed_with_skips' if any(s['skips'] for s in report['steps']) else 'passed'
     except (OSError, ValueError, RuntimeError, TypeError, KeyError, IndexError, subprocess.SubprocessError) as exc:
@@ -194,7 +221,7 @@ def verify():
         # A failed daemon connection is not proof of successful cleanup.
         try:
             run(['docker', 'info', '--format', '{{.ServerVersion}}'])
-            for name in (container, *(run_id + '-' + part for part in ('setup', 'auth_create', 'auth_active', 'auth_expire', 'auth_signout', 'auth_revoked', 'pdf_worker', 'scanner_worker', 'scanner', 'postgres_integration'))):
+            for name in (container, *(run_id + '-' + part for part in ('setup', 'auth_create', 'auth_active', 'auth_expire', 'auth_signout', 'auth_revoked', 'pdf_worker', 'scanner_worker', 'http-worker', 'pdf_http_ready', 'pdf_http_scanner_down', 'scanner', 'postgres_integration'))):
                 found = run(['docker', 'ps', '-aq', '--filter', f'name=^/{name}$'])
                 if found:
                     label = run(['docker', 'inspect', '--format', '{{index .Config.Labels "nomikos.local/verify"}}', name])
