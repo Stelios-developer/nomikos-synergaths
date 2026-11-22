@@ -1,0 +1,87 @@
+"""Verify hashes and declared check status in a local release evidence bundle.
+
+This does not verify signatures, provenance, image contents, test semantics or
+whether a report truthfully belongs to the stated commit.
+"""
+import argparse
+import hashlib
+import json
+from pathlib import Path, PurePosixPath
+import re
+
+
+def unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError('Duplicate manifest key')
+        result[key] = value
+    return result
+
+
+def verify(bundle, manifest):
+    root = bundle.resolve(strict=True)
+    if not root.is_dir() or not isinstance(manifest, dict):
+        raise ValueError('Invalid bundle or manifest')
+    if set(manifest) != {'commit', 'artifacts', 'checks'} or not isinstance(manifest['commit'], str) or not re.fullmatch(r'[0-9a-f]{40,64}', manifest['commit']):
+        raise ValueError('Invalid commit or manifest fields')
+    if not isinstance(manifest['artifacts'], list) or not manifest['artifacts']:
+        raise ValueError('At least one artifact is required')
+    paths, exact_paths = set(), set()
+    for item in manifest['artifacts']:
+        if not isinstance(item, dict) or set(item) != {'path', 'sha256'}:
+            raise ValueError('Invalid artifact')
+        name, digest = item['path'], item['sha256']
+        if (not isinstance(name, str) or not name or '\\' in name or ':' in name
+                or str(PurePosixPath(name)) != name or PurePosixPath(name).is_absolute()
+                or any(part in ('', '.', '..') for part in name.split('/'))):
+            raise ValueError('Unsafe artifact path')
+        if name.casefold() in paths:
+            raise ValueError('Duplicate artifact path')
+        paths.add(name.casefold())
+        exact_paths.add(name)
+        if not isinstance(digest, str) or not re.fullmatch(r'[0-9a-f]{64}', digest):
+            raise ValueError('Invalid artifact digest')
+        candidate = root
+        for part in name.split('/'):
+            candidate = candidate / part
+            if candidate.is_symlink():
+                raise ValueError('Symlink artifacts are not allowed')
+        if not candidate.is_file() or not candidate.resolve(strict=True).is_relative_to(root):
+            raise ValueError('Artifact missing or outside bundle')
+        with candidate.open('rb') as source:
+            if hashlib.file_digest(source, 'sha256').hexdigest() != digest:
+                raise ValueError('Artifact digest mismatch')
+    checks = manifest['checks']
+    if not isinstance(checks, list) or not checks:
+        raise ValueError('At least one check is required')
+    names = set()
+    for check in checks:
+        if (not isinstance(check, dict) or set(check) != {'id', 'status', 'artifact'}
+                or not isinstance(check['id'], str) or not re.fullmatch(r'[a-z0-9_-]{1,80}', check['id'])
+                or check['id'] in names or check['status'] not in ('passed', 'failed', 'skipped')
+                or not isinstance(check['artifact'], str) or check['artifact'] not in exact_paths):
+            raise ValueError('Invalid check')
+        names.add(check['id'])
+    return {'commit': manifest['commit'], 'artifacts_verified': len(paths), 'checks': len(checks),
+            'result': 'passed' if all(item['status'] == 'passed' for item in checks) else 'incomplete',
+            'limits': ['hash and declared statuses only', 'no signature or provenance verification',
+                       'does not verify report content, image identity, or test semantics']}
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--bundle', type=Path, required=True)
+    parser.add_argument('--manifest', type=Path, required=True)
+    args = parser.parse_args()
+    try:
+        manifest = json.loads(args.manifest.read_text(encoding='utf-8-sig'), object_pairs_hook=unique_object)
+        result = verify(args.bundle, manifest)
+    except (OSError, ValueError, TypeError, KeyError) as exc:
+        parser.exit(1, f'Bundle verification failed: {type(exc).__name__}\n')
+    print(json.dumps(result, indent=2))
+    return 0 if result['result'] == 'passed' else 1
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

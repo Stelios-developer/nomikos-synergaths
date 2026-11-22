@@ -1,5 +1,15 @@
 # Local-to-production release runbook
 
+`python scripts/quality/verify_release_bundle.py --bundle <directory>
+--manifest <manifest.json>` checks local evidence-file hashes and declared check
+statuses. The JSON contains `commit` (full Git hash), `artifacts` entries
+`{"path":"report.json","sha256":"<64 hex>"}`, and `checks` entries
+`{"id":"browser","status":"passed","artifact":"report.json"}`.
+It refuses unsafe paths, symlinks, hash mismatches and incomplete declared
+checks. It does **not** verify signatures, image provenance, report content or
+the truth of declared statuses. It is not a production release gate; use only
+synthetic reports without secrets.
+
 For synthetic PostgreSQL/pgvector, RLS, durable jobs and real Better Auth
 signed-cookie integration, run
 `python scripts/quality/verify_vector_isolated.py` from a clean committed
