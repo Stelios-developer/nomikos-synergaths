@@ -35,6 +35,13 @@ test passed at commit `acc7054`; the [report](evidence/n8n-acc7054-2026-11-22.js
 records image IDs, workflow hashes and cleanup. This is not a full application
 integration test and does not prove image provenance.
 
+At commit `f6d2aeb`, both the human-review and verified audit branches passed
+against the synthetic mock in a new isolated run
+([report](evidence/n8n-f6d2aeb-2026-11-22.json)). A separate run at the same
+commit passed the cookie, scanner and 39 PostgreSQL integration tests
+([report](evidence/vector-f6d2aeb-2026-11-22.json)). These were separate
+fixtures: they do not constitute one integrated upload-to-workflow test.
+
 Legacy encrypted-backup verification and its restore drill share an inventory
 validator that rejects duplicate names or manifest keys, links, unsafe paths,
 missing members and checksum mismatches. This is an archive-integrity guard,
