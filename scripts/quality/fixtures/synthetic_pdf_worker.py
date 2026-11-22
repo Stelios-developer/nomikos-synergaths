@@ -37,7 +37,7 @@ token = os.environ['PDF_SECURITY_TOKEN']
 async def check_requests():
     await rejected(source, 'incorrect', 401)
     await rejected(b'invalid', token, 400)
-    await rejected(source, token, 422)
+    await rejected(source, token, 503)
 
 
 asyncio.run(check_requests())

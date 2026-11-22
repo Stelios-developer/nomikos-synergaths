@@ -41,7 +41,7 @@ if sys.argv[1] == 'ready':
         raise AssertionError('EICAR not detected')
 elif sys.argv[1] == 'scanner_down':
     assert fetch('/health')[0] == 503
-    assert fetch('/v1/pdf/sanitize', payload, token)[0] == 422
+    assert fetch('/v1/pdf/sanitize', payload, token)[0] == 503
 else:
     raise ValueError('Unknown synthetic test phase')
 print('Synthetic PDF worker assertions passed.')
