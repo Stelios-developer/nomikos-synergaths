@@ -34,6 +34,13 @@ class PilotHumanReviewTests(unittest.TestCase):
             with self.subTest(change=change), self.assertRaises(ValueError):
                 validate_review(review, self.manifest, 'hash')
 
+    def test_rejects_unknown_top_level_and_document_metadata(self):
+        for target in ('review', 'document'):
+            review = copy.deepcopy(self.review)
+            (review if target == 'review' else review['documents'][0])['confidence'] = 'unverified'
+            with self.subTest(target=target), self.assertRaises(ValueError):
+                validate_review(review, self.manifest, 'hash')
+
     def test_rejects_unsubstantiated_structural_annotations(self):
         for change in ('bad_page', 'empty_quote', 'partial_absence', 'boolean_page', 'missing_reason', 'contradictory'):
             review = copy.deepcopy(self.review)

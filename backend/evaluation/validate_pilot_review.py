@@ -27,7 +27,8 @@ def strict_json(raw):
 
 
 def validate_review(review, manifest, manifest_digest):
-    if (not isinstance(review, dict) or not isinstance(review.get('reviewer'), str)
+    if (not isinstance(review, dict) or set(review) != {'reviewer', 'manifest_sha256', 'documents'}
+            or not isinstance(review.get('reviewer'), str)
             or not review['reviewer'].strip() or len(review['reviewer']) > 100):
         raise ValueError('A reviewer identifier is required')
     if review.get('manifest_sha256') != manifest_digest:
@@ -38,7 +39,8 @@ def validate_review(review, manifest, manifest_digest):
     expected = {entry['id'] for entry in manifest['documents']}
     seen = set()
     for case in cases:
-        if not isinstance(case, dict) or case.get('id') not in expected or case['id'] in seen:
+        if (not isinstance(case, dict) or set(case) != {'id', 'fields'}
+                or case.get('id') not in expected or case['id'] in seen):
             raise ValueError('Unknown or duplicate document')
         seen.add(case['id'])
         fields = case.get('fields')
