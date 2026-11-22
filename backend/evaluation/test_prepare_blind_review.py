@@ -2,6 +2,8 @@ import hashlib
 import json
 from pathlib import Path
 import tempfile
+import subprocess
+import sys
 import unittest
 
 from prepare_blind_review import prepare
@@ -61,6 +63,24 @@ class BlindReviewPacketTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Duplicate JSON key'):
             prepare(self.corpus, target, self.output)
         self.assertFalse(target.exists())
+
+    def test_comparison_cli_validates_complete_reviews_and_corpus(self):
+        digest = hashlib.sha256((self.corpus / 'manifest.json').read_bytes()).hexdigest()
+        fields = {'owner': {'status': 'uncertain', 'reason': 'fixture'},
+                  'approver': {'status': 'absent', 'reviewed_pages': [1, 2]},
+                  'deadline': {'status': 'present', 'value': 'test', 'quote': 'test', 'page': 1}}
+        review = {'reviewer': 'one', 'manifest_sha256': digest,
+                  'documents': [{'id': item['id'], 'fields': fields} for item in self.manifest['documents']]}
+        first, second = self.output / 'one.json', self.output / 'two.json'
+        first.write_text(json.dumps(review), encoding='utf-8')
+        review['reviewer'] = 'two'; second.write_text(json.dumps(review), encoding='utf-8')
+        command = [sys.executable, str(Path(__file__).with_name('compare_pilot_reviews.py')),
+                   '--corpus', str(self.corpus), '--first', str(first), '--second', str(second)]
+        result = subprocess.run(command, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)['fields_compared'], 90)
+        review['documents'].pop(); second.write_text(json.dumps(review), encoding='utf-8')
+        self.assertNotEqual(subprocess.run(command, capture_output=True).returncode, 0)
 
 
 if __name__ == '__main__':

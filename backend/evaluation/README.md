@@ -53,6 +53,14 @@ independent nor confirms quotes, absence, source support or model output. The
 pilot remains development-only; it is not a closed holdout. No human review is
 provided by this tool. Keep review files in ignored `output/`, not in Git.
 
+After two reviewers complete their reviews independently, `python
+evaluation/compare_pilot_reviews.py --corpus <pilot-directory> --first
+<review1.json> --second <review2.json>` validates both against the same hashed
+corpus and reports document/field disagreements without printing values or
+quotes. Distinct identifiers do not prove independence; agreement does not
+prove accuracy. A human must adjudicate differences. This remains a synthetic
+development set, not an independently curated holdout.
+
 To prepare an unlabelled packet for a reviewer, create an existing ignored
 `output/` directory and run `python evaluation/prepare_blind_review.py --corpus
 <pilot-directory> --destination <new-directory-inside-output>`. It verifies
