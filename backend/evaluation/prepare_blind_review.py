@@ -40,6 +40,14 @@ def prepare(corpus: Path, destination: Path, output_root: Path):
                 raise ValueError('Copied PDF differs from the verified manifest; discard the incomplete packet')
     (destination / 'documents.json').write_text(json.dumps({'documents': documents}, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     (destination / 'review-template.json').write_text(json.dumps(template, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    (destination / 'README.txt').write_text(
+        'Synthetic development documents only; this packet is not an independent holdout.\n'
+        'Review each PDF independently without model predictions or the source manifest.\n'
+        'Complete reviewer and owner, approver, deadline fields in review-template.json.\n'
+        'For present use status, value, quote and page; for absent use status and reviewed_pages [1,2].\n'
+        'For uncertain use status and reason. Scanned or illegible content may be uncertain.\n'
+        'Keep the original manifest hash unchanged; compare reviews only after independent completion.\n',
+        encoding='utf-8')
     return len(documents)
 
 

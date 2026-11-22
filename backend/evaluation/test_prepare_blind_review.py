@@ -42,6 +42,8 @@ class BlindReviewPacketTests(unittest.TestCase):
         self.assertNotIn('SECRET_LABEL', json.dumps(review))
         self.assertEqual(len(list((target / 'pdfs').glob('*.pdf'))), 30)
         self.assertFalse((target / 'pdfs' / 'manifest.json').exists())
+        self.assertIn('not an independent holdout', (target / 'README.txt').read_text(encoding='utf-8'))
+        self.assertNotIn('SECRET_LABEL', (target / 'README.txt').read_text(encoding='utf-8'))
         self.assertEqual(review['reviewer'], '')
         self.assertTrue(all(value is None for doc in review['documents'] for value in doc['fields'].values()))
         with self.assertRaises(FileExistsError):
