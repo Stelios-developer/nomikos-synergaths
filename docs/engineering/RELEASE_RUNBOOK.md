@@ -7,7 +7,8 @@ statuses against each JSON report's `commit` and `result` fields. The JSON conta
 `{"id":"browser","status":"passed","artifact":"report.json"}`.
 It refuses unsafe paths, symlinks, hash mismatches and incomplete declared
 checks. A report with a different commit, failed result or skips cannot be
-declared passed. It does **not** verify signatures, image provenance, report
+declared passed. Each check must be identified by the matching `check_id` or
+by exactly one successful named step in the report. It does **not** verify signatures, image provenance, report
 authenticity or the truth of declared results. It is not a production release gate; use only
 synthetic reports without secrets.
 

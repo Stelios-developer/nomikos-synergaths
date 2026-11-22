@@ -81,11 +81,28 @@ def verify(bundle, manifest, required_checks):
             raise ValueError('Invalid check report commit or result')
         if check['status'] == 'passed' and report['result'] != 'passed':
             raise ValueError('Passing declaration contradicts report')
+        # A generic successful report cannot stand in for every required
+        # check. Bind each check to a named report or to one unique step.
+        if report.get('check_id') != check['id']:
+            steps = report.get('steps')
+            if not isinstance(steps, list):
+                raise ValueError('Report does not identify the check')
+            matches = [step for step in steps if isinstance(step, dict) and step.get('name') == check['id']]
+            if len(matches) != 1:
+                raise ValueError('Report must contain exactly one matching check step')
+            step = matches[0]
+            if check['status'] == 'passed':
+                step_status, exit_code = step.get('status'), step.get('exit_code')
+                if ((step_status != 'passed' and not (type(exit_code) is int and exit_code == 0))
+                        or step_status not in (None, 'passed')
+                        or (exit_code is not None and (type(exit_code) is not int or exit_code != 0))
+                        or step.get('skips') or step.get('skip_lines')):
+                    raise ValueError('Passing declaration contradicts check step')
     missing = sorted(set(required_checks) - names)
     return {'commit': manifest['commit'], 'artifacts_verified': len(paths), 'checks': len(checks),
             'missing_required_checks': missing,
             'result': 'passed' if not missing and all(item['status'] == 'passed' for item in checks) else 'incomplete',
-            'limits': ['checks report commit and result fields only', 'no signature or provenance verification',
+            'limits': ['checks report identity, commit and result fields only', 'no signature or provenance verification',
                        'does not prove report authenticity, image identity, or test semantics']}
 
 

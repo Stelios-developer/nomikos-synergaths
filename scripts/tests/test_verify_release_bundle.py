@@ -15,7 +15,7 @@ class ReleaseBundleTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(); self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        raw = json.dumps({'commit': 'a' * 40, 'result': 'passed'}).encode()
+        raw = json.dumps({'commit': 'a' * 40, 'result': 'passed', 'check_id': 'test'}).encode()
         (self.root / 'report.json').write_bytes(raw)
         self.manifest = {'commit': 'a' * 40, 'artifacts': [{'path': 'report.json',
                          'sha256': hashlib.sha256(raw).hexdigest()}],
@@ -39,7 +39,7 @@ class ReleaseBundleTests(unittest.TestCase):
             manifest = copy.deepcopy(self.manifest); manifest['commit'] = 'a' * length
             with self.subTest(length=length), self.assertRaisesRegex(ValueError, 'commit'):
                 verify(self.root, manifest, ['test'])
-        raw = json.dumps({'commit': 'a' * 64, 'result': 'passed'}).encode()
+        raw = json.dumps({'commit': 'a' * 64, 'result': 'passed', 'check_id': 'test'}).encode()
         (self.root / 'report.json').write_bytes(raw)
         manifest = copy.deepcopy(self.manifest); manifest['commit'] = 'a' * 64
         manifest['artifacts'][0]['sha256'] = hashlib.sha256(raw).hexdigest()
@@ -69,12 +69,30 @@ class ReleaseBundleTests(unittest.TestCase):
 
     def test_cannot_declare_a_failed_or_other_commit_report_as_passed(self):
         for commit, result in (('a' * 40, 'failed'), ('b' * 40, 'passed'), ('a' * 40, 'passed_with_skips')):
-            raw = json.dumps({'commit': commit, 'result': result}).encode()
+            raw = json.dumps({'commit': commit, 'result': result, 'check_id': 'test'}).encode()
             (self.root / 'report.json').write_bytes(raw)
             manifest = copy.deepcopy(self.manifest)
             manifest['artifacts'][0]['sha256'] = hashlib.sha256(raw).hexdigest()
             with self.subTest(commit=commit, result=result), self.assertRaises(ValueError):
                 verify(self.root, manifest, ['test'])
+
+    def test_check_must_be_identified_and_matching_step_must_pass(self):
+        for steps, allowed in (([{'name': 'test', 'status': 'passed', 'exit_code': 0}], True),
+                               ([{'name': 'other', 'status': 'passed'}], False),
+                               ([{'name': 'test'}], False),
+                               ([{'name': 'test', 'exit_code': False}], False),
+                               ([{'name': 'test', 'status': 'failed'}], False),
+                               ([{'name': 'test', 'status': 'passed', 'skip_lines': ['skipped']}], False),
+                               ([{'name': 'test', 'status': 'passed'}, {'name': 'test', 'status': 'passed'}], False)):
+            raw = json.dumps({'commit': 'a' * 40, 'result': 'passed', 'steps': steps}).encode()
+            (self.root / 'report.json').write_bytes(raw)
+            manifest = copy.deepcopy(self.manifest)
+            manifest['artifacts'][0]['sha256'] = hashlib.sha256(raw).hexdigest()
+            with self.subTest(steps=steps):
+                if allowed:
+                    self.assertEqual(verify(self.root, manifest, ['test'])['result'], 'passed')
+                else:
+                    with self.assertRaises(ValueError): verify(self.root, manifest, ['test'])
 
 
 if __name__ == '__main__':
