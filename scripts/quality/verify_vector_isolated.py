@@ -55,7 +55,7 @@ def verify():
               'result': 'running', 'steps': [], 'cleanup': 'not_started',
               'limits': ['synthetic data only', 'reused local images and host pytest, not a clean signed build',
                          'synthetic auth with verification email disabled; not a live HTTP browser flow',
-                         'PDF ingress client, worker and scanner use a synthetic HTTP path; not a full authenticated upload',
+                         'authenticated upload uses ASGI TestClient, synthetic embeddings and isolated filesystem; not a browser deployment',
                          'OCR timeout mocked',
                          'scanner uses bundled local signatures, not a current signature-update check',
                          'no integrated upload, n8n, browser, real provider or production certification']}
@@ -143,9 +143,6 @@ def verify():
         if not isinstance(users, list) or len(users) != 2:
             raise RuntimeError('Synthetic auth did not produce exactly two users')
         exchange('auth_active', auth_backend, {'phase': 'active', 'users': users})
-        exchange('auth_expire', auth_backend, {'phase': 'expired_first', 'users': users})
-        exchange('auth_signout', auth, {'phase': 'signout', 'users': [users[1]]}, json_output=True)
-        exchange('auth_revoked', auth_backend, {'phase': 'revoked', 'users': users})
         pdf = ['docker', 'run', '--rm', '--pull=never', '--network=none', '--read-only', '--cap-drop=ALL',
                '--security-opt=no-new-privileges', '--pids-limit', '64', '--memory', '1g', '--cpus', '2',
                '--tmpfs', '/tmp:rw,nosuid,noexec,size=96m',
@@ -208,6 +205,21 @@ def verify():
             '-e', 'PDF_SECURITY_TOKEN=synthetic-only-token-at-least-32-characters',
         ] + base[base.index('--entrypoint'):] + ['/project/scripts/quality/fixtures/synthetic_pdf_http.py']
         step('pdf_http_ready', client + ['ready'], timeout=300)
+        authenticated_upload = base[:base.index('--entrypoint')] + [
+            '-e', f'DATABASE_URL={uri}', '-e', f'BETTER_AUTH_SECRET={secret}',
+            '-e', 'AUTH_REQUIRED=true', '-e', 'REQUIRE_VERIFIED_EMAIL=false',
+            '-e', 'ANALYSIS_DISPATCH_ENABLED=false', '-e', 'APP_ENV=development',
+            '-e', f'VECTOR_DATABASE_URL=postgresql://dmc_runtime:{PASSWORD}@db:5432/dmc',
+            '-e', 'EMBEDDING_DIMENSIONS=3', '-e', 'EMBEDDING_MODEL=synthetic-integration',
+            '-e', 'PDF_STORAGE_DIR=/tmp/isolated-pdfs', '-e', 'DOCUMENT_CASE_DB_PATH=/tmp/isolated-cases.db',
+            '-e', 'EVAL_DB_PATH=/tmp/isolated-evaluation.db', '-e', 'OBSERVABILITY_DB_PATH=/tmp/isolated-observability.db',
+            '-e', 'PDF_SECURITY_URL=http://pdf-worker:8080',
+            '-e', 'PDF_SECURITY_TOKEN=synthetic-only-token-at-least-32-characters',
+        ] + base[base.index('--entrypoint'):] + ['/project/scripts/quality/fixtures/synthetic_authenticated_upload.py']
+        exchange('authenticated_upload', authenticated_upload, {'users': users})
+        exchange('auth_expire', auth_backend, {'phase': 'expired_first', 'users': users})
+        exchange('auth_signout', auth, {'phase': 'signout', 'users': [users[1]]}, json_output=True)
+        exchange('auth_revoked', auth_backend, {'phase': 'revoked', 'users': users})
         # Scanner is test-owned and deliberately stopped to check fail-closed ingress.
         run(['docker', 'stop', scanner_name], timeout=60)
         step('pdf_http_scanner_down', client + ['scanner_down'], timeout=180)
@@ -221,7 +233,7 @@ def verify():
         # A failed daemon connection is not proof of successful cleanup.
         try:
             run(['docker', 'info', '--format', '{{.ServerVersion}}'])
-            for name in (container, *(run_id + '-' + part for part in ('setup', 'auth_create', 'auth_active', 'auth_expire', 'auth_signout', 'auth_revoked', 'pdf_worker', 'scanner_worker', 'http-worker', 'pdf_http_ready', 'pdf_http_scanner_down', 'scanner', 'postgres_integration'))):
+            for name in (container, *(run_id + '-' + part for part in ('setup', 'auth_create', 'auth_active', 'auth_expire', 'auth_signout', 'auth_revoked', 'pdf_worker', 'scanner_worker', 'http-worker', 'pdf_http_ready', 'authenticated_upload', 'pdf_http_scanner_down', 'scanner', 'postgres_integration'))):
                 found = run(['docker', 'ps', '-aq', '--filter', f'name=^/{name}$'])
                 if found:
                     label = run(['docker', 'inspect', '--format', '{{index .Config.Labels "nomikos.local/verify"}}', name])
