@@ -28,11 +28,18 @@ class BackupInventoryTests(unittest.TestCase):
             self.assertEqual(len(validate_inventory(archive)), 2)
 
     def test_duplicate_and_unsafe_members_fail_closed(self):
-        for extra in ('legacy-vectors.json', '../escape', 'pdfs/../../escape', 'C:/escape', 'pdfs\\escape', '/escape'):
+        for extra in ('legacy-vectors.json', '../escape', 'pdfs/../../escape', 'C:/escape', 'pdfs\\escape', '/escape',
+                      'pdfs//alias.pdf', 'pdfs/alias.pdf/'):
             data = archive_bytes([('legacy-vectors.json', b'[]'), (extra, b'fake')])
             with self.subTest(extra=extra), tarfile.open(fileobj=io.BytesIO(data), mode='r:') as archive:
                 with self.assertRaises(ValueError):
                     validate_inventory(archive)
+
+    def test_archive_refuses_canonical_path_aliases_before_restore(self):
+        files = [('legacy-vectors.json', b'[]'), ('pdfs/a.pdf', b'a'), ('pdfs//a.pdf', b'b')]
+        with tarfile.open(fileobj=io.BytesIO(archive_bytes(files)), mode='r:') as archive:
+            with self.assertRaisesRegex(ValueError, 'Unexpected or duplicate'):
+                validate_inventory(archive)
 
     def test_duplicate_manifest_keys_and_changed_data_are_rejected(self):
         digest = hashlib.sha256(b'[]').hexdigest()

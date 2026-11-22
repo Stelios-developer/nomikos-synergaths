@@ -21,6 +21,7 @@ def validate_inventory(archive):
         name = entry.name
         path = PurePosixPath(name)
         if (not entry.isfile() or not name or name in by_name or path.is_absolute()
+                or str(path) != name
                 or '\\' in name or ':' in name or any(part in ('.', '..') for part in name.split('/'))
                 or any(ord(character) < 32 for character in name)):
             raise ValueError('Unexpected or duplicate backup member')
