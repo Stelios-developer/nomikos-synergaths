@@ -1,0 +1,26 @@
+{
+  "commit": "8c12bb64266521ebed1104ee06803bd958620b66",
+  "source_sha256": "3e95140244f0e937bf8a1c79ff5bb80859bca64c7867e2d33a8a6d2049e8990f",
+  "test_sha256": "29b2dafaa3b34ea9dc73746ce5148ce0967ec9a726e94f35ceb7224e9a9fe714",
+  "python": "3.13.15",
+  "cryptography": "44.0.3",
+  "started_utc": "2026-11-22T14:48:13.223274+00:00",
+  "result": "passed",
+  "checks": [
+    "current_user_dpapi",
+    "encrypted_roundtrip_and_exclusive_creation",
+    "reject_truncated",
+    "reject_missing-end",
+    "reject_modified",
+    "reject_wrong-key",
+    "reject_trailing",
+    "reject_reordered"
+  ],
+  "limits": [
+    "synthetic data only",
+    "host dependencies reused; no clean lockfile build",
+    "DPAPI key is tied to current Windows user; no off-machine recovery",
+    "no coordinated restore of real stores"
+  ],
+  "finished_utc": "2026-11-22T14:48:13.602191+00:00"
+}

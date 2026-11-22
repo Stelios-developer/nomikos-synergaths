@@ -16,6 +16,14 @@ Repeat `--require-check` for every required check. Missing checks make the
 result incomplete; the operator-supplied list is not itself a production
 policy or evidence of report authenticity.
 
+At `8c12bb6`, after scanner and release-verifier changes, the offline run
+passed 334 backend tests with one Linux DPAPI skip
+([report](evidence/offline-8c12bb6-2026-11-22.json)). The separate synthetic
+Windows DPAPI check passed at the same commit
+([report](evidence/windows-backup-8c12bb6-2026-11-22.json)). These are
+separate local tests; they do not certify the integrated deployment or an
+off-machine restore.
+
 At commit `0124cf3`, offline verification passed with 332 backend tests and
 one Linux DPAPI skip ([report](evidence/offline-0124cf3-2026-11-22.json));
 the separate synthetic Windows DPAPI check passed at that same commit
