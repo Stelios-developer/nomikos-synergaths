@@ -32,6 +32,10 @@ class UnsafePdf(ValueError):
     pass
 
 
+class ScannerUnavailable(UnsafePdf):
+    """The scanner could not provide a reliable verdict."""
+
+
 def run_private_job(mode: str, contents: bytes) -> bytes:
     """Kill stalled parsers; bound output in ephemeral tmpfs, not a pipe."""
     timeout = 90 if mode == "sanitize" else 540
@@ -82,12 +86,12 @@ def scan_with_clamav(contents: bytes) -> None:
                 if b"\0" in part:
                     break
     except (OSError, TimeoutError) as exc:
-        raise UnsafePdf("Malware scanning is unavailable.") from exc
+        raise ScannerUnavailable("Malware scanning is unavailable.") from exc
     verdict = bytes(reply).split(b"\0", 1)[0]
     if verdict.endswith(b" FOUND"):
         raise UnsafePdf("Malware was detected in the PDF.")
     if verdict != b"stream: OK":
-        raise UnsafePdf("Malware scanning did not return a clean verdict.")
+        raise ScannerUnavailable("Malware scanning did not return a clean verdict.")
 
 
 def reconstruct_pdf(contents: bytes) -> tuple[bytes, int]:
@@ -202,6 +206,8 @@ async def sanitize_pdf(request: Request) -> Response:
         if not 1 <= pages <= MAX_PAGES or not rebuilt.startswith(b"%PDF-"):
             raise UnsafePdf("Invalid PDF processing output.")
         await asyncio.to_thread(scan_with_clamav, rebuilt)
+    except ScannerUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Malware scanner is unavailable.") from exc
     except UnsafePdf as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     finally:
@@ -224,6 +230,8 @@ async def ocr_pdf(request: Request) -> Response:
         pages = json.loads(result)["pages"]
         if not isinstance(pages, list) or not 1 <= len(pages) <= MAX_PAGES:
             raise UnsafePdf("Invalid OCR processing output.")
+    except ScannerUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Malware scanner is unavailable.") from exc
     except UnsafePdf as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except (ValueError, KeyError, TypeError) as exc:

@@ -54,7 +54,7 @@ def test_worker_fails_closed_when_scanner_unavailable(monkeypatch):
     monkeypatch.setenv("PDF_SECURITY_TOKEN", "s" * 40)
 
     def unavailable(_contents):
-        raise worker.UnsafePdf("Malware scanning is unavailable.")
+        raise worker.ScannerUnavailable("Malware scanning is unavailable.")
 
     monkeypatch.setattr(worker, "scan_with_clamav", unavailable)
     response = TestClient(worker.app).post(
@@ -62,8 +62,14 @@ def test_worker_fails_closed_when_scanner_unavailable(monkeypatch):
         content=_pdf(),
         headers={"Content-Type": "application/pdf", "X-PDF-Security-Token": "s" * 40},
     )
-    assert response.status_code == 422
+    assert response.status_code == 503
     assert "unavailable" in response.json()["detail"]
+
+    response = TestClient(worker.app).post(
+        "/v1/pdf/ocr", content=_pdf(),
+        headers={"Content-Type": "application/pdf", "X-PDF-Security-Token": "s" * 40},
+    )
+    assert response.status_code == 503
 
 
 def test_worker_rejects_missing_token_and_embedded_file(monkeypatch):
