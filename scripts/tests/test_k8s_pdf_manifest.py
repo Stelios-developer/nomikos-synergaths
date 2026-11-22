@@ -5,6 +5,8 @@ import importlib.util
 import subprocess
 import sys
 import unittest
+from unittest.mock import patch
+import json
 
 import yaml
 
@@ -65,6 +67,29 @@ class PdfDemoManifestTests(unittest.TestCase):
         next(doc for doc in bad if doc['kind'] == 'Service')['metadata']['namespace'] = 'foreign'
         with self.assertRaisesRegex(ValueError, 'Unexpected resource namespace'):
             drill.prepare(bad, namespace)
+
+
+class PdfEndpointTests(unittest.TestCase):
+    @staticmethod
+    def response(endpoints):
+        return json.dumps({'items': [{'endpoints': endpoints}]})
+
+    def test_waits_for_only_the_expected_ready_pod(self):
+        stale = {'conditions': {'ready': True}, 'targetRef': {'kind': 'Pod', 'uid': 'old'}}
+        ready = {'conditions': {'ready': True}, 'targetRef': {'kind': 'Pod', 'uid': 'new'}}
+        with patch.object(drill, 'execute', side_effect=[self.response([stale]), self.response([ready])]), \
+             patch.object(drill.time, 'sleep'):
+            drill.wait_worker_endpoint(['kubectl'], 'new')
+
+    def test_unready_endpoint_is_withdrawn(self):
+        endpoint = {'conditions': {'ready': False}, 'targetRef': {'kind': 'Pod', 'uid': 'old'}}
+        with patch.object(drill, 'execute', return_value=self.response([endpoint])):
+            drill.wait_worker_endpoint(['kubectl'], None)
+
+    def test_rejects_ready_endpoint_without_pod_identity(self):
+        with patch.object(drill, 'execute', return_value=self.response([{'conditions': {'ready': True}}])):
+            with self.assertRaisesRegex(RuntimeError, 'Unexpected ready service endpoint'):
+                drill.wait_worker_endpoint(['kubectl'], None)
 
 
 if __name__ == '__main__':

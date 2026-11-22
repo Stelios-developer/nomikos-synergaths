@@ -43,6 +43,26 @@ def prepare(documents, namespace):
     return documents
 
 
+def wait_worker_endpoint(k, expected_uid, timeout=90):
+    """Wait until the service routes to exactly the expected pod, or none."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        slices = json.loads(execute(k + ['get', 'endpointslices', '-l',
+                                        'kubernetes.io/service-name=pdf-worker', '-o', 'json']))
+        ready = []
+        for item in slices['items']:
+            for endpoint in item.get('endpoints', []):
+                if endpoint.get('conditions', {}).get('ready') is True:
+                    target = endpoint.get('targetRef', {})
+                    if target.get('kind') != 'Pod' or not target.get('uid'):
+                        raise RuntimeError('Unexpected ready service endpoint')
+                    ready.append(target['uid'])
+        if sorted(ready) == ([] if expected_uid is None else [expected_uid]):
+            return
+        time.sleep(1)
+    raise RuntimeError('Worker service endpoint did not converge')
+
+
 def drill(cluster, kubeconfig):
     revision = clean_revision()
     path = validate_target(cluster, kubeconfig)
@@ -85,6 +105,9 @@ def drill(cluster, kubeconfig):
         if len(worker_pods) != 1:
             raise RuntimeError('Expected exactly one PDF worker pod')
         worker = worker_pods[0]['metadata']['name']
+        worker_uid = worker_pods[0]['metadata']['uid']
+        wait_worker_endpoint(k, worker_uid)
+        report['steps'].append({'name': 'worker_endpoint_ready', 'status': 'passed'}); save()
         client = (ROOT / 'scripts/quality/fixtures/k8s_pdf_client.py').read_text(encoding='utf-8')
         report['client_sha256'] = hashlib.sha256(client.encode('utf-8')).hexdigest()
         step('scanner_and_cdr', k + ['exec', worker, '--', 'python', '-c', client, 'ready'], timeout=300)
@@ -96,11 +119,24 @@ def drill(cluster, kubeconfig):
                 time.sleep(1)
             else: raise RuntimeError('Scanner did not stop')
             step('scanner_unavailable', k + ['exec', worker, '--', 'python', '-c', client, 'scanner_down'], timeout=120)
+            wait_worker_endpoint(k, None)
+            report['steps'].append({'name': 'worker_endpoint_withdrawn', 'status': 'passed'}); save()
         finally:
             execute(k + ['scale', 'deployment/pdf-scanner', '--replicas=1'])
             execute(k + ['rollout', 'status', 'deployment/pdf-scanner', '--timeout=180s'], timeout=190)
             execute(k + ['rollout', 'status', 'deployment/pdf-worker', '--timeout=180s'], timeout=190)
         step('scanner_recovered', k + ['exec', worker, '--', 'python', '-c', client, 'ready'], timeout=300)
+        wait_worker_endpoint(k, worker_uid)
+        report['steps'].append({'name': 'worker_endpoint_restored', 'status': 'passed'}); save()
+        step('replace_worker', k + ['delete', 'pod', worker, '--wait=true'], timeout=120)
+        step('replacement_ready', k + ['rollout', 'status', 'deployment/pdf-worker', '--timeout=180s'], timeout=190)
+        pods = json.loads(execute(k + ['get', 'pods', '-l', 'app=pdf-worker', '-o', 'json']))['items']
+        replacements = [p for p in pods if not p['metadata'].get('deletionTimestamp')]
+        if len(replacements) != 1 or replacements[0]['metadata']['uid'] == worker_uid:
+            raise RuntimeError('Expected a single new worker pod')
+        replacement = replacements[0]['metadata']
+        wait_worker_endpoint(k, replacement['uid'])
+        step('replacement_scanner_and_cdr', k + ['exec', replacement['name'], '--', 'python', '-c', client, 'ready'], timeout=300)
         report['result'] = 'passed'
     except (RuntimeError, ValueError, KeyError, subprocess.SubprocessError) as exc:
         report['result'] = 'failed'; report['failure_type'] = type(exc).__name__
