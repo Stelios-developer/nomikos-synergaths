@@ -5,6 +5,11 @@ security assessment or authorization to process real documents. It reflects the
 code and referenced engineering documents at the time of review; deployment
 configuration must be checked separately.
 
+The backend PDF worker client refuses redirects and does not inherit HTTP
+proxy configuration, preventing that client from forwarding PDF bytes and its
+worker token through those paths. The configured initial worker endpoint and
+its deployment network remain operator-controlled and require separate review.
+
 | Boundary | Data and authority | Failure and open verification |
 | --- | --- | --- |
 | Browser → Better Auth → API | Browser sends an HttpOnly session cookie; the API verifies it and derives a workspace server-side. Client-selected workspace headers are not authority when auth is required. See [authentication](../AUTHENTICATION.md). | Reject expired, revoked or unverified sessions. HTTPS, cookie scope, CSRF/origin behavior, proxy headers and cross-user access need tests against the exact deployed configuration. |

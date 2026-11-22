@@ -16,6 +16,18 @@ class PdfSecurityError(ValueError):
         self.status_code = status_code
 
 
+class _NoRedirect(request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def _open_worker(req, timeout):
+    # PDF bytes and worker credentials must never be forwarded to a redirect
+    # destination or inherited system HTTP proxy.
+    opener = request.build_opener(request.ProxyHandler({}), _NoRedirect())
+    return opener.open(req, timeout=timeout)
+
+
 def _sanitize(contents: bytes, max_bytes: int) -> tuple[bytes, int]:
     url = os.getenv("PDF_SECURITY_URL", "").strip()
     if not url:
@@ -28,7 +40,7 @@ def _sanitize(contents: bytes, max_bytes: int) -> tuple[bytes, int]:
         method="POST",
     )
     try:
-        with request.urlopen(req, timeout=90) as response:
+        with _open_worker(req, timeout=90) as response:
             if response.status != 200:
                 raise PdfSecurityError("The PDF safety service rejected the file.")
             mode = response.headers.get("X-PDF-CDR-Mode", "")
@@ -76,7 +88,7 @@ def ocr_pdf(pdf_path: str) -> list[dict]:
         method="POST",
     )
     try:
-        with request.urlopen(req, timeout=600) as response:
+        with _open_worker(req, timeout=600) as response:
             payload = response.read(40 * 1024 * 1024 + 1)
             if len(payload) > 40 * 1024 * 1024:
                 raise PdfSecurityError("The OCR response is too large.")

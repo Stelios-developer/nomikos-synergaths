@@ -4,6 +4,8 @@ import io
 import json
 from pathlib import Path
 from urllib.error import HTTPError
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from threading import Thread
 
 import fitz
 import pytest
@@ -190,7 +192,7 @@ def test_backend_rejects_invalid_ocr_response(monkeypatch, tmp_path):
         def read(self, _limit):
             return b'{"pages":[{"page_number":1,"text":"ok","char_count":99}]}'
 
-    monkeypatch.setattr("services.pdf_security_client.request.urlopen", lambda *_args, **_kwargs: FakeResponse())
+    monkeypatch.setattr("services.pdf_security_client._open_worker", lambda *_args, **_kwargs: FakeResponse())
     with pytest.raises(PdfSecurityError, match="OCR service failed"):
         ocr_pdf(str(source))
 
@@ -201,10 +203,49 @@ def test_worker_rejection_is_distinct_from_service_outage(monkeypatch):
     def rejected(*_args, **_kwargs):
         raise HTTPError("http://worker.internal", 422, "rejected", {}, None)
 
-    monkeypatch.setattr("services.pdf_security_client.request.urlopen", rejected)
+    monkeypatch.setattr("services.pdf_security_client._open_worker", rejected)
     with pytest.raises(PdfSecurityError) as caught:
         _sanitize(_pdf(), 20 * 1024 * 1024)
     assert caught.value.status_code == 400
+
+
+@pytest.mark.parametrize('status', [301, 302, 307, 308])
+def test_pdf_worker_redirect_never_forwards_document_or_token(monkeypatch, tmp_path, status):
+    received = []
+
+    class Destination(BaseHTTPRequestHandler):
+        def do_GET(self):
+            received.append('GET'); self.send_response(200); self.end_headers()
+        def do_POST(self):
+            received.append('POST'); self.send_response(200); self.end_headers()
+        def log_message(self, *_args):
+            pass
+
+    with ThreadingHTTPServer(('127.0.0.1', 0), Destination) as destination:
+        location = f'http://127.0.0.1:{destination.server_port}/unexpected'
+
+        class Redirect(BaseHTTPRequestHandler):
+            def do_POST(self):
+                self.send_response(status); self.send_header('Location', location)
+                self.send_header('Content-Length', '0'); self.end_headers()
+            def log_message(self, *_args):
+                pass
+
+        with ThreadingHTTPServer(('127.0.0.1', 0), Redirect) as worker:
+            threads = [Thread(target=server.serve_forever, daemon=True) for server in (destination, worker)]
+            for thread in threads: thread.start()
+            try:
+                monkeypatch.setenv('PDF_SECURITY_URL', f'http://127.0.0.1:{worker.server_port}')
+                monkeypatch.setenv('PDF_SECURITY_TOKEN', 'synthetic-private-token')
+                path = tmp_path / 'synthetic.pdf'; path.write_bytes(_pdf())
+                for call in (lambda: _sanitize(_pdf(), 20 * 1024 * 1024), lambda: ocr_pdf(str(path))):
+                    with pytest.raises(PdfSecurityError) as error:
+                        call()
+                    assert error.value.status_code == 503
+                assert received == []
+            finally:
+                for server in (worker, destination): server.shutdown()
+                for thread in threads: thread.join(timeout=2)
 
 
 def test_parser_job_timeout_fails_closed(monkeypatch):
