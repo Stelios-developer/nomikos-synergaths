@@ -27,7 +27,7 @@ def verify(bundle, manifest):
         raise ValueError('Invalid commit or manifest fields')
     if not isinstance(manifest['artifacts'], list) or not manifest['artifacts']:
         raise ValueError('At least one artifact is required')
-    paths, exact_paths = set(), set()
+    paths, exact_paths, verified = set(), set(), {}
     for item in manifest['artifacts']:
         if not isinstance(item, dict) or set(item) != {'path', 'sha256'}:
             raise ValueError('Invalid artifact')
@@ -52,6 +52,7 @@ def verify(bundle, manifest):
         with candidate.open('rb') as source:
             if hashlib.file_digest(source, 'sha256').hexdigest() != digest:
                 raise ValueError('Artifact digest mismatch')
+        verified[name] = (candidate, digest)
     checks = manifest['checks']
     if not isinstance(checks, list) or not checks:
         raise ValueError('At least one check is required')
@@ -63,10 +64,23 @@ def verify(bundle, manifest):
                 or not isinstance(check['artifact'], str) or check['artifact'] not in exact_paths):
             raise ValueError('Invalid check')
         names.add(check['id'])
+        # The caller's declaration cannot turn a failed or different-commit
+        # JSON report into a passing check. This still cannot prove authenticity.
+        report_path, digest = verified[check['artifact']]
+        with report_path.open('rb') as source:
+            raw = source.read(4 * 1024 * 1024 + 1)
+        if len(raw) > 4 * 1024 * 1024 or hashlib.sha256(raw).hexdigest() != digest:
+            raise ValueError('Check report changed or exceeds size limit')
+        report = json.loads(raw.decode('utf-8-sig'), object_pairs_hook=unique_object)
+        if (not isinstance(report, dict) or report.get('commit') != manifest['commit']
+                or report.get('result') not in ('passed', 'passed_with_skips', 'failed', 'skipped', 'incomplete', 'setup_failed')):
+            raise ValueError('Invalid check report commit or result')
+        if check['status'] == 'passed' and report['result'] != 'passed':
+            raise ValueError('Passing declaration contradicts report')
     return {'commit': manifest['commit'], 'artifacts_verified': len(paths), 'checks': len(checks),
             'result': 'passed' if all(item['status'] == 'passed' for item in checks) else 'incomplete',
-            'limits': ['hash and declared statuses only', 'no signature or provenance verification',
-                       'does not verify report content, image identity, or test semantics']}
+            'limits': ['checks report commit and result fields only', 'no signature or provenance verification',
+                       'does not prove report authenticity, image identity, or test semantics']}
 
 
 def main():

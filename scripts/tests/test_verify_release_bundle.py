@@ -15,9 +15,10 @@ class ReleaseBundleTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(); self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        (self.root / 'report.json').write_bytes(b'synthetic')
+        raw = json.dumps({'commit': 'a' * 40, 'result': 'passed'}).encode()
+        (self.root / 'report.json').write_bytes(raw)
         self.manifest = {'commit': 'a' * 40, 'artifacts': [{'path': 'report.json',
-                         'sha256': hashlib.sha256(b'synthetic').hexdigest()}],
+                         'sha256': hashlib.sha256(raw).hexdigest()}],
                          'checks': [{'id': 'test', 'status': 'passed', 'artifact': 'report.json'}]}
 
     def test_matching_bundle_and_incomplete_checks(self):
@@ -46,6 +47,15 @@ class ReleaseBundleTests(unittest.TestCase):
         with patch.object(Path, 'is_symlink', return_value=True):
             with self.assertRaisesRegex(ValueError, 'Symlink'):
                 verify(self.root, self.manifest)
+
+    def test_cannot_declare_a_failed_or_other_commit_report_as_passed(self):
+        for commit, result in (('a' * 40, 'failed'), ('b' * 40, 'passed'), ('a' * 40, 'passed_with_skips')):
+            raw = json.dumps({'commit': commit, 'result': result}).encode()
+            (self.root / 'report.json').write_bytes(raw)
+            manifest = copy.deepcopy(self.manifest)
+            manifest['artifacts'][0]['sha256'] = hashlib.sha256(raw).hexdigest()
+            with self.subTest(commit=commit, result=result), self.assertRaises(ValueError):
+                verify(self.root, manifest)
 
 
 if __name__ == '__main__':
