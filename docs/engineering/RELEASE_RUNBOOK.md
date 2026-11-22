@@ -238,3 +238,5 @@ not been verified. A mock AI test does not establish answer quality.
       not proof of CI success.
 
 At `7bbf830`, the isolated authenticated upload and scanner outage test passed again, also checking that the rejected upload left no source PDF in storage. PostgreSQL integration and cleanup passed ([report](evidence/authenticated-outage-7bbf830-2026-11-22.json)). This used synthetic inputs, local reused images and an ASGI TestClient; it does not establish full browser/n8n integration or independently verified image provenance.
+
+At `1aa285c`, the offline verification passed with one Windows DPAPI boundary skip in the Linux container ([report](evidence/offline-1aa285c-2026-11-22.json)). The local image and host pytest were reused; this is not a clean build or a production deployment test.
