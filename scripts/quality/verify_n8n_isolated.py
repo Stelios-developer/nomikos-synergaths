@@ -13,13 +13,24 @@ from verify_offline import ROOT, IMAGE, clean_revision, extract_archive, run
 
 N8N_IMAGE = 'n8nio/n8n:2.42.7'
 PREFIX = 'http://host.docker.internal:8000/'
+ALLOWED_NODE_TYPES = frozenset({
+    'n8n-nodes-base.httpRequest', 'n8n-nodes-base.if',
+    'n8n-nodes-base.respondToWebhook', 'n8n-nodes-base.stickyNote',
+    'n8n-nodes-base.webhook',
+})
 
 
 def synthetic_workflow(workflow):
     if not isinstance(workflow, dict) or workflow.get('id') != 'nexusAgentOrchestrator':
         raise ValueError('Unexpected workflow')
+    nodes = workflow.get('nodes')
+    if not isinstance(nodes, list) or not nodes:
+        raise ValueError('Workflow has no nodes')
     count = 0
-    for node in workflow.get('nodes', []):
+    for node in nodes:
+        if (not isinstance(node, dict) or node.get('type') not in ALLOWED_NODE_TYPES
+                or node.get('credentials')):
+            raise ValueError('Unexpected workflow node or credential')
         if node.get('type') == 'n8n-nodes-base.httpRequest':
             parameters = node.get('parameters', {})
             url = parameters.get('url')

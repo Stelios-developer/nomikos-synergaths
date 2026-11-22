@@ -64,6 +64,15 @@ class WorkflowIsolationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             verify.synthetic_workflow({'id': 'nexusAgentOrchestrator', 'nodes': []})
 
+    def test_rejects_unexpected_nodes_and_credentials(self):
+        for extra in ({'type': 'n8n-nodes-base.executeCommand'},
+                      {'type': 'n8n-nodes-base.httpRequest', 'credentials': {'api': {'id': 'foreign'}}},
+                      None):
+            value = copy.deepcopy(self.workflow())
+            value['nodes'].append(extra)
+            with self.subTest(extra=extra), self.assertRaises(ValueError):
+                verify.synthetic_workflow(value)
+
 
 if __name__ == '__main__':
     unittest.main()
