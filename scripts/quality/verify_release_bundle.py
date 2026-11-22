@@ -23,7 +23,7 @@ def verify(bundle, manifest, required_checks):
     root = bundle.resolve(strict=True)
     if not root.is_dir() or not isinstance(manifest, dict):
         raise ValueError('Invalid bundle or manifest')
-    if set(manifest) != {'commit', 'artifacts', 'checks'} or not isinstance(manifest['commit'], str) or not re.fullmatch(r'[0-9a-f]{40,64}', manifest['commit']):
+    if set(manifest) != {'commit', 'artifacts', 'checks'} or not isinstance(manifest['commit'], str) or not re.fullmatch(r'(?:[0-9a-f]{40}|[0-9a-f]{64})', manifest['commit']):
         raise ValueError('Invalid commit or manifest fields')
     if not isinstance(manifest['artifacts'], list) or not manifest['artifacts']:
         raise ValueError('At least one artifact is required')

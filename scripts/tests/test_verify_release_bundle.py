@@ -34,6 +34,17 @@ class ReleaseBundleTests(unittest.TestCase):
             with self.subTest(required=required), self.assertRaises(ValueError):
                 verify(self.root, self.manifest, required)
 
+    def test_commit_must_be_a_full_git_object_id(self):
+        for length in (39, 41, 63, 65):
+            manifest = copy.deepcopy(self.manifest); manifest['commit'] = 'a' * length
+            with self.subTest(length=length), self.assertRaisesRegex(ValueError, 'commit'):
+                verify(self.root, manifest, ['test'])
+        raw = json.dumps({'commit': 'a' * 64, 'result': 'passed'}).encode()
+        (self.root / 'report.json').write_bytes(raw)
+        manifest = copy.deepcopy(self.manifest); manifest['commit'] = 'a' * 64
+        manifest['artifacts'][0]['sha256'] = hashlib.sha256(raw).hexdigest()
+        self.assertEqual(verify(self.root, manifest, ['test'])['result'], 'passed')
+
     def test_tampering_unsafe_paths_and_unreferenced_reports_fail(self):
         variants = []
         for change in ('digest', 'traversal', 'alias', 'missing_check_artifact', 'duplicate_check'):
