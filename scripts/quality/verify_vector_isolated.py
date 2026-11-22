@@ -56,9 +56,9 @@ def verify():
               'limits': ['synthetic data only', 'reused local images and host pytest, not a clean signed build',
                          'synthetic auth with verification email disabled; not a live HTTP browser flow',
                          'authenticated upload uses ASGI TestClient, synthetic embeddings and isolated filesystem; not a browser deployment',
-                         'OCR timeout mocked',
+                         'OCR timeout is mocked; authenticated upload uses the local OCR worker',
                          'scanner uses bundled local signatures, not a current signature-update check',
-                         'no integrated upload, n8n, browser, real provider or production certification']}
+                         'no n8n in the upload path, real browser, real provider or production certification']}
 
     def save():
         report_path.write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
