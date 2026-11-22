@@ -93,6 +93,8 @@ def test_worker_rejects_missing_token_and_embedded_file(monkeypatch):
 
 @pytest.mark.parametrize("reply,allowed", [
     (b"stream: OK\0", True),
+    (b"stream: OK", False),
+    (b"stream: OK\0unexpected", False),
     (b"stream: Eicar-Test-Signature FOUND\0", False),
     (b"INSTREAM size limit exceeded\0", False),
     (b"", False),

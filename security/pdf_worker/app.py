@@ -87,7 +87,11 @@ def scan_with_clamav(contents: bytes) -> None:
                     break
     except (OSError, TimeoutError) as exc:
         raise ScannerUnavailable("Malware scanning is unavailable.") from exc
-    verdict = bytes(reply).split(b"\0", 1)[0]
+    # INSTREAM uses a NUL-terminated reply. A truncated clean prefix or
+    # additional bytes must never be accepted as a completed verdict.
+    if not reply.endswith(b"\0") or reply.count(b"\0") != 1:
+        raise ScannerUnavailable("Malware scanning did not return a complete verdict.")
+    verdict = bytes(reply[:-1])
     if verdict.endswith(b" FOUND"):
         raise UnsafePdf("Malware was detected in the PDF.")
     if verdict != b"stream: OK":
