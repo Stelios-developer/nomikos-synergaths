@@ -43,6 +43,18 @@ proves the freshness of signatures. The test reuses local dependencies and does 
 verified email, end-to-end PDF upload, n8n, provider calls, Kubernetes or
 production readiness.
 
+The `8115da8` local run adds a real internal HTTP path from the backend PDF
+ingress client to a temporary worker and ClamAV: clean input, invalid PDF,
+invalid token and scanner outage passed, along with the separate auth and 39
+PostgreSQL integration tests ([report](evidence/pdf-http-8115da8-2026-11-22.json)).
+The [initial run](evidence/pdf-http-initial-ebbd8e1-2026-11-22.json) failed:
+the worker reported scanner unavailability as 422, causing the backend to
+report a bad file. The worker now returns 503 for an unavailable or ambiguous
+scanner verdict while malware and invalid input remain rejected. The separate
+[offline suite](evidence/offline-8115da8-2026-11-22.json) passed with its
+Windows DPAPI skip. This HTTP client test is not a browser-authenticated upload,
+does not include n8n in the same path, and reuses unsigned local images.
+
 `python scripts/quality/verify_n8n_isolated.py` imports a test copy of the
 actual workflow into disposable local n8n and exercises the backend transport
 against a synthetic mock on an internal Docker network. It checks missing-header
