@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 import main
 import services.ingestion as ingestion
+from services.pdf_storage import pdf_path
 
 users = json.load(sys.stdin)['users']
 assert len(users) == 2
@@ -34,6 +35,7 @@ with TestClient(main.app) as client:
         listing = client.get('/documents', headers=headers(users[0]))
         assert listing.status_code == 200
         assert name not in [row['filename'] for row in listing.json()]
+        assert pdf_path(name, session_id=users[0]['id']) is None
         print('Authenticated upload refused scanner outage without publishing a document.')
         raise SystemExit(0)
     assert result.status_code == 200, f'upload status {result.status_code}'
