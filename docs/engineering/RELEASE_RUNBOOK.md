@@ -80,6 +80,15 @@ Windows DPAPI check passed ([report](evidence/windows-backup-c535576-2026-11-22.
 These remain separate tests with reused local images, not end-to-end production
 deployment, a signed release or coordinated offsite recovery.
 
+At `a74aea3`, an additional synthetic authenticated ASGI upload used real
+Better Auth cookies, PostgreSQL, the PDF worker, ClamAV and OCR with synthetic
+embeddings. The owner could list and view the page; a second user could neither
+see nor delete it. The same run passed the 39 PostgreSQL integration tests and
+confirmed cleanup ([report](evidence/authenticated-upload-a74aea3-2026-11-22.json)).
+The report's legacy `no integrated upload` limit refers to absence of a full
+browser/n8n deployment; the ASGI upload path itself did run. There is no real
+provider, browser, n8n in this path, verified email or signed image provenance.
+
 At `e0087b0`, after distinguishing storage outages during publication, the
 offline suite passed 341 backend tests with one Linux DPAPI skip
 ([report](evidence/offline-e0087b0-2026-11-22.json)); a separate synthetic
