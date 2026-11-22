@@ -48,6 +48,13 @@ The separate synthetic Windows DPAPI and encrypted-backup check passed on the
 same commit ([report](evidence/windows-backup-f403185-2026-11-22.json)). This
 does not prove off-machine recovery or a coordinated restore of all stores.
 
+After the blind-packet and archive-path validation changes, the offline suite
+again passed at commit `ff8a246`, with 332 backend tests and one Linux DPAPI
+skip ([report](evidence/offline-ff8a246-2026-11-22.json)). The separate Windows
+synthetic DPAPI check passed at that same commit
+([report](evidence/windows-backup-ff8a246-2026-11-22.json)). The limitations
+above still apply; these checks are not a coordinated restore drill.
+
 Legacy encrypted-backup verification and its restore drill share an inventory
 validator that rejects duplicate names or manifest keys, links, unsafe paths,
 missing members and checksum mismatches. This is an archive-integrity guard,
