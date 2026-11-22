@@ -1,0 +1,105 @@
+{
+  "commit": "223c4c448fa98b0810ffcfd4cc0f14f6052f6787",
+  "cluster": "nomikos-ak-34cea30ec600",
+  "started_utc": "2026-11-22T20:29:49.139915+00:00",
+  "resources": [
+    "Namespace/nomikos-ak-34cea30ec600",
+    "ConfigMap/scanner-config",
+    "Secret/pdf-worker-test-token",
+    "Service/clamav",
+    "Service/pdf-worker",
+    "Deployment/pdf-scanner",
+    "Deployment/pdf-worker",
+    "NetworkPolicy/deny-default",
+    "NetworkPolicy/scanner-flow",
+    "NetworkPolicy/worker-flow"
+  ],
+  "steps": [
+    {
+      "name": "schema",
+      "status": "passed"
+    },
+    {
+      "name": "apply",
+      "status": "passed"
+    },
+    {
+      "name": "ready_pdf-scanner",
+      "status": "passed"
+    },
+    {
+      "name": "ready_pdf-worker",
+      "status": "passed"
+    },
+    {
+      "name": "worker_source_match",
+      "status": "passed"
+    },
+    {
+      "name": "worker_endpoint_ready",
+      "status": "passed"
+    },
+    {
+      "name": "scanner_and_cdr",
+      "status": "passed"
+    },
+    {
+      "name": "stop_scanner",
+      "status": "passed"
+    },
+    {
+      "name": "scanner_unavailable",
+      "status": "passed"
+    },
+    {
+      "name": "worker_endpoint_withdrawn",
+      "status": "passed"
+    },
+    {
+      "name": "scanner_recovered",
+      "status": "passed"
+    },
+    {
+      "name": "worker_endpoint_restored",
+      "status": "passed"
+    },
+    {
+      "name": "replace_worker",
+      "status": "passed"
+    },
+    {
+      "name": "replacement_ready",
+      "status": "passed"
+    },
+    {
+      "name": "replacement_scanner_and_cdr",
+      "status": "passed"
+    }
+  ],
+  "result": "passed",
+  "limits": [
+    "partial PDF/scanner slice only, not full application deployment",
+    "local reused image tags; no independently verified source provenance",
+    "bundled scanner signatures were not updated",
+    "no CNI enforcement, ingress, auth, n8n or production certification",
+    "caller owns cluster cleanup; this drill deletes no namespaces or volumes"
+  ],
+  "runtime_images": [
+    {
+      "pod": "pdf-scanner-649f5df576-k725c",
+      "container": "scanner",
+      "image_id": "docker.io/library/import-2026-11-22@sha256:70a92e096dda47aeaa60c439dbbb6fd7b27c24fedd870828378dfe97066a72b3"
+    },
+    {
+      "pod": "pdf-worker-574744f546-rgfhs",
+      "container": "worker",
+      "image_id": "sha256:fcdfc9d2ed42aa5f4f545a19d5de68d26c9b1ee31776edbd9901f5a6813ec001"
+    }
+  ],
+  "worker_source_sha256": {
+    "app.py": "d6dca4d8870137ecb1e086c6585a73dbfed08982a094e27e8030ecc329542aaf",
+    "pdf_task.py": "47c2311241ee9490976ef081247c34357fbc37a24c013712256ae8b6f6159863"
+  },
+  "client_sha256": "6ce797c40ebabc5d54d9025aa560277fb55785c8f4d4ebc4a54299a68f73db26",
+  "finished_utc": "2026-11-22T20:30:57.357503+00:00"
+}
