@@ -1,10 +1,18 @@
 import copy
 import unittest
 
-from validate_pilot_review import validate_review
+from validate_pilot_review import strict_json, validate_review
 
 
 class PilotHumanReviewTests(unittest.TestCase):
+    def test_review_json_cannot_hide_duplicate_fields_or_nonfinite_numbers(self):
+        for raw in (b'{"reviewer":"one","reviewer":"two"}',
+                    b'{"documents":[{"fields":{"owner":1,"owner":2}}]}',
+                    b'{"page":NaN}', b'{"page":Infinity}'):
+            with self.subTest(raw=raw), self.assertRaises(ValueError):
+                strict_json(raw)
+        self.assertEqual(strict_json(b'\xef\xbb\xbf{"page":1}'), {'page': 1})
+
     def setUp(self):
         self.manifest = {'documents': [{'id': 'pilot-01'}, {'id': 'pilot-02'}]}
         fields = {'owner': {'status': 'present', 'value': 'A', 'page': 1, 'quote': 'Owner A'},

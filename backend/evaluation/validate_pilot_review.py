@@ -9,6 +9,23 @@ from pilot_manifest import validate_manifest
 FIELDS = ('owner', 'approver', 'deadline')
 
 
+def strict_json(raw):
+    """Reject ambiguous duplicate keys and non-JSON numeric constants."""
+    def object_without_duplicates(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError('Duplicate JSON key')
+            result[key] = value
+        return result
+
+    def invalid_constant(_value):
+        raise ValueError('Invalid JSON numeric constant')
+
+    return json.loads(raw.decode('utf-8-sig'), object_pairs_hook=object_without_duplicates,
+                      parse_constant=invalid_constant)
+
+
 def validate_review(review, manifest, manifest_digest):
     if (not isinstance(review, dict) or not isinstance(review.get('reviewer'), str)
             or not review['reviewer'].strip() or len(review['reviewer']) > 100):
@@ -58,11 +75,11 @@ def main():
     try:
         directory = args.corpus.resolve(strict=True)
         raw_manifest = (directory / 'manifest.json').read_bytes()
-        manifest = json.loads(raw_manifest)
+        manifest = strict_json(raw_manifest)
         if not validate_manifest(directory, manifest):
             raise ValueError('Legacy corpus without verified PDF hashes cannot be used for a frozen review')
         raw_review = args.review.read_bytes()
-        review = json.loads(raw_review.decode('utf-8-sig'))
+        review = strict_json(raw_review)
         digest = hashlib.sha256(raw_manifest).hexdigest()
         count = validate_review(review, manifest, digest)
     except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
