@@ -4,7 +4,8 @@ import json
 from urllib.parse import urlsplit, parse_qs
 
 EXPECTED = ['start', 'document-dna', 'facts', 'risks', 'draft-action-pack', 'audit', 'finalize']
-seen = []
+WORKSPACES = {'synthetic-workspace': 'review', 'synthetic-workspace-verified': 'verified'}
+seen = {workspace: [] for workspace in WORKSPACES}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -20,14 +21,16 @@ class Handler(BaseHTTPRequestHandler):
         self.respond(200, {'seen': seen})
 
     def do_POST(self):
-        if self.headers.get('X-N8N-API-Key') != 'synthetic-only-key' or self.headers.get('X-Workspace-ID') != 'synthetic-workspace':
+        workspace = self.headers.get('X-Workspace-ID')
+        if self.headers.get('X-N8N-API-Key') != 'synthetic-only-key' or workspace not in WORKSPACES:
             self.respond(403, {'error': 'denied'}); return
+        stages = seen[workspace]
         prefix = '/integrations/n8n/cases/'
         parsed = urlsplit(self.path)
         operation = parsed.path.removeprefix(prefix) if parsed.path.startswith(prefix) else ''
-        if len(seen) >= len(EXPECTED) or operation != EXPECTED[len(seen)]:
+        if len(stages) >= len(EXPECTED) or operation != EXPECTED[len(stages)]:
             self.respond(409, {'error': 'unexpected stage'}); return
-        if operation == 'finalize' and parse_qs(parsed.query) != {'fixture_branch': ['review']}:
+        if operation == 'finalize' and parse_qs(parsed.query) != {'fixture_branch': [WORKSPACES[workspace]]}:
             self.respond(409, {'error': 'unexpected audit branch'}); return
         try:
             size = int(self.headers.get('Content-Length', '0'))
@@ -40,9 +43,10 @@ class Handler(BaseHTTPRequestHandler):
                 assert body.get('case_id') == 'synthetic-case'
         except (ValueError, AssertionError, TypeError):
             self.respond(400, {'error': 'invalid fixture'}); return
-        seen.append(operation)
-        self.respond(200, {'case_id': 'synthetic-case', 'workspace_id': 'synthetic-workspace',
-                           'audit': {'passed': False}, 'status': 'needs_human_review'})
+        stages.append(operation)
+        self.respond(200, {'case_id': 'synthetic-case', 'workspace_id': workspace,
+                           'audit': {'passed': WORKSPACES[workspace] == 'verified'},
+                           'status': 'needs_human_review' if WORKSPACES[workspace] == 'review' else 'verified'})
 
 
 ThreadingHTTPServer(('0.0.0.0', 8000), Handler).serve_forever()

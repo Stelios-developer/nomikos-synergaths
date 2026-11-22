@@ -33,14 +33,16 @@ try:
     else:
         raise AssertionError('Invalid integration header was accepted')
     with urllib.request.urlopen('http://mock-backend:8000/seen', timeout=5) as response:
-        assert json.load(response)['seen'] == []
+        assert json.load(response)['seen'] == {'synthetic-workspace': [], 'synthetic-workspace-verified': []}
     stage = 'transport'
     trigger_case_workflow('synthetic.pdf', 'synthetic-workspace', timeout_seconds=60)
+    trigger_case_workflow('synthetic.pdf', 'synthetic-workspace-verified', timeout_seconds=60)
     stage = 'stages'
     with urllib.request.urlopen('http://mock-backend:8000/seen', timeout=5) as response:
         seen = json.load(response)['seen']
-    assert seen == ['start', 'document-dna', 'facts', 'risks', 'draft-action-pack', 'audit', 'finalize']
+    expected = ['start', 'document-dna', 'facts', 'risks', 'draft-action-pack', 'audit', 'finalize']
+    assert seen == {'synthetic-workspace': expected, 'synthetic-workspace-verified': expected}
 except Exception as exc:
     print(f'diagnostic: {stage} {type(exc).__name__}', flush=True)
     raise SystemExit(1)
-print('Real backend transport and local n8n workflow reached the synthetic human-review path.')
+print('Real backend transport and local n8n workflow reached both synthetic audit branches.')
