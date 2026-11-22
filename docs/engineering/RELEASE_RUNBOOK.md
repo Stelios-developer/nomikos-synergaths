@@ -71,6 +71,15 @@ isolated HTTP ingress, real local scanner, scanner outage, synthetic auth and
 not refreshed, images were reused without signed provenance, and this remains
 separate from browser-authenticated upload and n8n integration.
 
+At commit `c535576`, after refusing PDF-worker redirects and inherited HTTP
+proxies, the isolated real-worker/scanner HTTP path and 39 PostgreSQL tests
+passed ([report](evidence/pdf-http-c535576-2026-11-22.json)). Offline checks
+passed 338 backend tests with the Linux DPAPI skip
+([report](evidence/offline-c535576-2026-11-22.json)); the separate synthetic
+Windows DPAPI check passed ([report](evidence/windows-backup-c535576-2026-11-22.json)).
+These remain separate tests with reused local images, not end-to-end production
+deployment, a signed release or coordinated offsite recovery.
+
 `python scripts/quality/verify_n8n_isolated.py` imports a test copy of the
 actual workflow into disposable local n8n and exercises the backend transport
 against a synthetic mock on an internal Docker network. It checks missing-header
