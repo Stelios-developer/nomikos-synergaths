@@ -33,8 +33,15 @@ def clean_revision():
 
 def extract_archive(archive, destination):
     with zipfile.ZipFile(archive) as contents:
+        seen = set()
         for item in contents.infolist():
             name = item.filename
+            canonical = name.rstrip('/')
+            if (not canonical or ':' in canonical or '\\' in canonical
+                    or any(part in ('', '.', '..') for part in canonical.split('/'))
+                    or canonical.casefold() in seen):
+                raise ValueError('Unsafe archive entry')
+            seen.add(canonical.casefold())
             target = (destination / name).resolve()
             mode = (item.external_attr >> 16) & 0o170000
             if (name.startswith(('/', '\\')) or '\\' in name or mode == 0o120000

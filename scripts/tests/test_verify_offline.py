@@ -49,6 +49,18 @@ class OfflineVerificationTests(unittest.TestCase):
             verify.extract_archive(archive, destination)
             self.assertEqual((destination / 'dir' / 'file.txt').read_text(), 'safe')
 
+    def test_archive_rejects_ambiguous_paths_before_writing(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary); destination = root / 'source'; destination.mkdir()
+            for number, names in enumerate((('dir/file', 'dir//file'), ('file', 'FILE'), ('safe', 'C:/file'))):
+                archive = root / f'alias-{number}.zip'
+                with zipfile.ZipFile(archive, 'w') as bundle:
+                    for name in names:
+                        bundle.writestr(name, 'synthetic')
+                with self.subTest(names=names), self.assertRaisesRegex(ValueError, 'Unsafe archive'):
+                    verify.extract_archive(archive, destination)
+                self.assertEqual(list(destination.iterdir()), [])
+
 
 if __name__ == '__main__':
     unittest.main()
