@@ -7,8 +7,10 @@ import asyncio
 import json
 import os
 import shutil
+import sqlite3
 import tempfile
 
+import psycopg
 from fastapi import HTTPException
 from starlette.concurrency import run_in_threadpool
 
@@ -121,5 +123,9 @@ async def process_upload(file, workspace_id, max_bytes):
             raise HTTPException(exc.status_code, str(exc)) from exc
         except WorkspaceUnavailable:
             raise
+        except (OSError, sqlite3.OperationalError, psycopg.OperationalError, psycopg.InterfaceError) as exc:
+            # A storage or database outage is not evidence that the user's PDF
+            # is invalid. Keep the details out of the client response.
+            raise HTTPException(503, "Document processing is temporarily unavailable.") from exc
         except Exception as exc:
             raise HTTPException(400, "Could not process PDF.") from exc

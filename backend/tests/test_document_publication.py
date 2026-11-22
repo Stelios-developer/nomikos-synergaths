@@ -2,12 +2,14 @@ import asyncio
 import io
 import threading
 import time
+import sqlite3
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 import numpy as np
-from fastapi import UploadFile
+import psycopg
+from fastapi import HTTPException, UploadFile
 from fastapi.testclient import TestClient
 
 import main
@@ -52,6 +54,18 @@ def test_failed_first_upload_does_not_leave_a_document(sample_pdf_factory, fake_
             document_publication.publish_pdf("memo.pdf", replacement, DEFAULT_SESSION_ID)
     assert get_collection().get(workspace_id=DEFAULT_SESSION_ID, include=[])["ids"] == []
     assert pdf_storage.pdf_path("memo.pdf") is None
+
+
+@pytest.mark.parametrize('failure', [OSError('secret disk detail'), sqlite3.OperationalError('secret sqlite detail'),
+                                    psycopg.OperationalError('secret database detail')])
+def test_upload_reports_dependency_outage_without_leaking_details(sample_pdf_factory, failure):
+    contents = Path(sample_pdf_factory()).read_bytes()
+    with patch.object(document_publication, 'publish_pdf', side_effect=failure):
+        with pytest.raises(HTTPException) as error:
+            asyncio.run(document_publication.process_upload(UploadFile(io.BytesIO(contents), filename='memo.pdf'), 'owner', 1024 * 1024))
+    assert error.value.status_code == 503
+    assert error.value.detail == 'Document processing is temporarily unavailable.'
+    assert 'secret' not in error.value.detail
 
 
 def test_successful_replacement_invalidates_cases_and_removes_temporary_sources(sample_pdf_factory, fake_embeddings):

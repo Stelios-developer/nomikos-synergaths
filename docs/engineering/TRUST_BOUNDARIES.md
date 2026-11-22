@@ -9,6 +9,10 @@ The backend PDF worker client refuses redirects and does not inherit HTTP
 proxy configuration, preventing that client from forwarding PDF bytes and its
 worker token through those paths. The configured initial worker endpoint and
 its deployment network remain operator-controlled and require separate review.
+For document publication, recognized filesystem, SQLite and PostgreSQL
+connection failures return a generic 503 rather than blaming the PDF; internal
+exception details are not returned to the client. Other failure classes and
+full deployment-level recovery require separate verification.
 
 | Boundary | Data and authority | Failure and open verification |
 | --- | --- | --- |
