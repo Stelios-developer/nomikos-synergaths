@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "commit": "e0087b0f26e4fec2640b263b0465a3e851776e07",
+  "image_id": "sha256:250c822ee7a11df0dd57307f4a568fa61ba2a477bf086c782112c3207f12cceb",
+  "run_id": "offline-verify-5b43bd0d0034f6e4",
+  "host_python": "3.13.15",
+  "host_pytest": "8.3.3",
+  "started_utc": "2026-11-22T15:00:56.022143+00:00",
+  "steps": [
+    {
+      "name": "evaluation_unit",
+      "status": "passed",
+      "exit_code": 0,
+      "skips": [],
+      "log": "evaluation_unit.log"
+    },
+    {
+      "name": "k8s_guard_unit",
+      "status": "passed",
+      "exit_code": 0,
+      "skips": [],
+      "log": "k8s_guard_unit.log"
+    },
+    {
+      "name": "backup_archive_unit",
+      "status": "passed",
+      "exit_code": 0,
+      "skips": [],
+      "log": "backup_archive_unit.log"
+    },
+    {
+      "name": "verification_unit",
+      "status": "passed",
+      "exit_code": 0,
+      "skips": [],
+      "log": "verification_unit.log"
+    },
+    {
+      "name": "backend_unit",
+      "status": "passed",
+      "exit_code": 0,
+      "skips": [
+        "SKIPPED [1] tests/test_backup_crypto.py:18: Windows current-user DPAPI boundary"
+      ],
+      "log": "backend_unit.log"
+    }
+  ],
+  "limits": [
+    "local synthetic tests only",
+    "container image and host pytest are reused, not a clean lockfile build",
+    "no Kubernetes, real provider, real documents, browser or production certification"
+  ],
+  "lockfile_sha256": {
+    "backend/requirements-linux-py312.lock": "c5b07453efd74a855dc4db6840b0eaa063f866f34530e4d536e54d5617946c18",
+    "backend/requirements-test.lock": "009adb368c08e4a1bc4727c30faa4e70ddedef4938e867a8b59b17ca4d69b631"
+  },
+  "finished_utc": "2026-11-22T15:01:31.424210+00:00",
+  "result": "passed_with_skips"
+}

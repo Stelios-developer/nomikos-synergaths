@@ -80,6 +80,13 @@ Windows DPAPI check passed ([report](evidence/windows-backup-c535576-2026-11-22.
 These remain separate tests with reused local images, not end-to-end production
 deployment, a signed release or coordinated offsite recovery.
 
+At `e0087b0`, after distinguishing storage outages during publication, the
+offline suite passed 341 backend tests with one Linux DPAPI skip
+([report](evidence/offline-e0087b0-2026-11-22.json)); a separate synthetic
+Windows DPAPI run passed
+([report](evidence/windows-backup-e0087b0-2026-11-22.json)). These checks do
+not replace full authenticated upload/workflow integration or offsite restore.
+
 `python scripts/quality/verify_n8n_isolated.py` imports a test copy of the
 actual workflow into disposable local n8n and exercises the backend transport
 against a synthetic mock on an internal Docker network. It checks missing-header
