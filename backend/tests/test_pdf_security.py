@@ -197,6 +197,27 @@ def test_backend_rejects_invalid_ocr_response(monkeypatch, tmp_path):
         ocr_pdf(str(source))
 
 
+@pytest.mark.parametrize('payload', [
+    b'{"pages":[{"page_number":true,"text":"x","char_count":1}]}',
+    b'{"pages":[{"page_number":1,"text":"x","char_count":true}]}',
+    b'{"pages":[{"page_number":1,"text":"x","char_count":1,"char_count":1}]}',
+    b'{"pages":[{"page_number":1,"text":"x","char_count":1}],"other":NaN}',
+])
+def test_backend_rejects_ambiguous_ocr_json(monkeypatch, tmp_path, payload):
+    source = tmp_path / 'synthetic.pdf'
+    source.write_bytes(_pdf())
+    monkeypatch.setenv('PDF_SECURITY_URL', 'http://worker.internal')
+
+    class FakeResponse:
+        def __enter__(self): return self
+        def __exit__(self, *_args): return None
+        def read(self, _limit): return payload
+
+    monkeypatch.setattr('services.pdf_security_client._open_worker', lambda *_args, **_kwargs: FakeResponse())
+    with pytest.raises(PdfSecurityError, match='OCR service failed'):
+        ocr_pdf(str(source))
+
+
 def test_worker_rejection_is_distinct_from_service_outage(monkeypatch):
     monkeypatch.setenv("PDF_SECURITY_URL", "http://worker.internal")
 

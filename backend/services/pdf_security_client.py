@@ -28,6 +28,19 @@ def _open_worker(req, timeout):
     return opener.open(req, timeout=timeout)
 
 
+def _strict_json_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError('Duplicate OCR response field')
+        result[key] = value
+    return result
+
+
+def _reject_json_constant(_value):
+    raise ValueError('Non-finite OCR response number')
+
+
 def _sanitize(contents: bytes, max_bytes: int) -> tuple[bytes, int]:
     url = os.getenv("PDF_SECURITY_URL", "").strip()
     if not url:
@@ -92,13 +105,16 @@ def ocr_pdf(pdf_path: str) -> list[dict]:
             payload = response.read(40 * 1024 * 1024 + 1)
             if len(payload) > 40 * 1024 * 1024:
                 raise PdfSecurityError("The OCR response is too large.")
-        pages = json.loads(payload)["pages"]
+        pages = json.loads(payload, object_pairs_hook=_strict_json_object,
+                           parse_constant=_reject_json_constant)["pages"]
         if not isinstance(pages, list) or not 1 <= len(pages) <= 250:
             raise ValueError("Invalid OCR page count")
         for index, page in enumerate(pages, 1):
-            if not isinstance(page, dict) or page.get("page_number") != index or not isinstance(page.get("text"), str):
+            if (not isinstance(page, dict) or type(page.get("page_number")) is not int
+                    or page["page_number"] != index or not isinstance(page.get("text"), str)):
                 raise ValueError("Invalid OCR page data")
-            if len(page["text"]) > 100_000 or page.get("char_count") != len(page["text"]):
+            if (len(page["text"]) > 100_000 or type(page.get("char_count")) is not int
+                    or page["char_count"] != len(page["text"])):
                 raise ValueError("Invalid OCR text length")
         return pages
     except (error.URLError, TimeoutError, OSError, KeyError, ValueError, TypeError) as exc:
