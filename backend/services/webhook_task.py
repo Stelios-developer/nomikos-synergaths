@@ -14,7 +14,9 @@ class NoRedirect(request.HTTPRedirectHandler):
 
 
 def perform(packet):
-    opener = request.build_opener(NoRedirect())
+    # The workspace ID and integration credential are private; environment
+    # proxy settings must not route this internal request to another service.
+    opener = request.build_opener(request.ProxyHandler({}), NoRedirect())
     req = request.Request(
         packet["url"],
         data=json.dumps(packet["body"]).encode(),

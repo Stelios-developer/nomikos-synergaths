@@ -98,6 +98,25 @@ def test_real_http_redirect_never_forwards_integration_credentials(monkeypatch):
         assert [item[0] for item in received] == ["/webhook"]
 
 
+def test_webhook_transport_does_not_use_environment_proxy(monkeypatch):
+    from services import webhook_task
+    import socket
+
+    seen = []
+    def reject_connection(address, *_args, **_kwargs):
+        seen.append(address)
+        raise OSError('synthetic failure; no network connection')
+
+    monkeypatch.setenv('http_proxy', 'http://proxy.invalid:8888')
+    monkeypatch.setenv('no_proxy', '')
+    monkeypatch.setattr(socket, 'create_connection', reject_connection)
+    result = webhook_task.perform({'url': 'http://n8n.invalid:5678/webhook',
+                                   'body': {'workspace_id': 'synthetic'}, 'timeout': 1,
+                                   'limit': 1024, 'headers': {'X-N8N-API-Key': 'synthetic'}})
+    assert result == {'kind': 'unavailable'}
+    assert seen == [('n8n.invalid', 5678)]
+
+
 def test_real_http_response_is_bounded(monkeypatch):
     monkeypatch.setattr(bridge, "N8N_RESPONSE_LIMIT_BYTES", 1024)
     with upstream(monkeypatch, ["oversize"]) as received:
