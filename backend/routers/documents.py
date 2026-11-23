@@ -148,9 +148,9 @@ def get_page_image(
 ):
     """
     Renders one page of the original PDF as a PNG, with `snippet` (the
-    cited chunk's text) highlighted if it can be located on the page —
-    lets the UI show a citation's exact source location instead of just
-    the extracted text. Falls back to an unhighlighted page image if the
+    cited chunk's text) highlighted if it can be located on the page.
+    Matching may highlight only a prefix and does not verify the full claim.
+    Falls back to an unhighlighted page image if the
     snippet can't be matched (e.g. odd whitespace/hyphenation), and to a
     404 if the PDF itself was never stored, has since been deleted, or
     doesn't belong to the requesting session.

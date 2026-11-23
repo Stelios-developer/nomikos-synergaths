@@ -1,7 +1,7 @@
 """
 Renders a single PDF page as a PNG with the cited chunk's text highlighted —
 powers the "view source page" citation feature (click a citation, see the
-exact excerpt highlighted on the real page, not just the extracted text).
+source page, with best-effort highlighting rather than proof of an exact match).
 
 Matching strategy: PyMuPDF's page.search_for() does its own text extraction
 internally and handles line-wrapped text reasonably well, but a full ~500

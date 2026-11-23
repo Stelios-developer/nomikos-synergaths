@@ -70,13 +70,13 @@ export default function PdfPageModal({ citation, onClose }: PdfPageModalProps) {
     >
       <header className="source-modal-header">
         <div>
-          <span className="eyebrow">SOURCE PROOF</span>
+          <span className="eyebrow">SOURCE PREVIEW</span>
           <h2 id="source-modal-title" title={citation.filename}>
             {citation.filename}
           </h2>
           <p>
-            Page {citation.page} · the cited excerpt is highlighted on the
-            original PDF.
+            Page {citation.page} · highlighting may be partial or unavailable.
+            Verify the cited text in context.
           </p>
         </div>
         <button
@@ -100,7 +100,7 @@ export default function PdfPageModal({ citation, onClose }: PdfPageModalProps) {
 
         {error && (
           <div className="source-modal-error" role="alert">
-            <strong>We could not load this original page.</strong>
+            <strong>We could not load this source page.</strong>
             <p>{error}</p>
           </div>
         )}
@@ -108,7 +108,7 @@ export default function PdfPageModal({ citation, onClose }: PdfPageModalProps) {
         {imgUrl && !loading && (
           <img
             src={imgUrl}
-            alt={`Page ${citation.page} of ${citation.filename}; cited excerpt highlighted`}
+            alt={`Page ${citation.page} of ${citation.filename}`}
           />
         )}
       </div>
