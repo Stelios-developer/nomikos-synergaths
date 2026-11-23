@@ -244,3 +244,5 @@ At `1aa285c`, the offline verification passed with one Windows DPAPI boundary sk
 At `13f04bb`, the isolated actual n8n workflow import, publication and synthetic execution passed again, with owned resources cleaned up ([report](evidence/n8n-13f04bb-2026-11-22.json)). HTTP destinations were rewritten to synthetic mock endpoints; this does not test the PDF/auth/upload-to-n8n chain, a real provider or production.
 
 At `d0803cc`, offline verification passed with 345 backend tests and one Windows DPAPI test skipped inside the Linux container ([report](evidence/offline-d0803cc-2026-11-23.json)). The image and host test dependencies were reused; this does not establish full integration, a signed build or a production deployment.
+
+At `f150b3b`, the isolated n8n workflow passed with the direct-only transport ([report](evidence/n8n-f150b3b-2026-11-23.json)). Workflow calls used synthetic mock endpoints and reused local images, not the complete authenticated upload chain or an external provider. Proxy usage is intentionally disabled for this internal integration; deployments requiring a proxy need an explicit separately reviewed design.
