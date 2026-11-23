@@ -1,4 +1,5 @@
 import { ApiError, requestJson, responseError, streamEvents, withResponse } from './http'
+import { pagePreviewRequest } from './pagePreview'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api'
 
@@ -299,8 +300,8 @@ export async function runSupervisor(question: string, documentFilter: string | u
 }
 
 export async function getPageImageUrl(filename: string, page: number, snippet: string): Promise<string> {
-  const params = new URLSearchParams({ page: String(page), snippet })
-  const image = await withResponse(`${BASE_URL}/documents/${encodeURIComponent(filename)}/page?${params}`, {}, async (res) => {
+  const { url, init } = pagePreviewRequest(BASE_URL, filename, page, snippet)
+  const image = await withResponse(url, init, async (res) => {
     if (!res.ok) throw await responseError(res)
     return res.blob()
   })

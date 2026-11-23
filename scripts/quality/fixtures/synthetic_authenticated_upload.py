@@ -46,6 +46,10 @@ with TestClient(main.app) as client:
     assert name not in [row['filename'] for row in second.json()]
     assert client.get(f'/documents/{name}/page?page=1', headers=headers(users[0])).status_code == 200
     assert client.get(f'/documents/{name}/page?page=1', headers=headers(users[1])).status_code == 404
+    preview = {'page': 1, 'snippet': 'SYNTHETIC LEGAL DOCUMENT'}
+    image = client.post(f'/documents/{name}/page', json=preview, headers=headers(users[0]))
+    assert image.status_code == 200 and image.headers.get('cache-control') == 'no-store'
+    assert client.post(f'/documents/{name}/page', json=preview, headers=headers(users[1])).status_code == 404
     assert client.delete(f'/documents/{name}', headers=headers(users[1])).status_code == 404
     assert client.get(f'/documents/{name}/page?page=1', headers=headers(users[0])).status_code == 200
 

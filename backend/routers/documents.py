@@ -2,6 +2,7 @@ import json
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, ConfigDict, Field
 
 from db.vector_store import get_collection
 from services import analysis_jobs, case_store, document_case, n8n_orchestrator
@@ -12,6 +13,12 @@ from services.session_scope import get_session_id
 from services.workspace_lock import scoped_operation
 
 router = APIRouter()
+
+
+class PagePreviewRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    page: int = Field(ge=1)
+    snippet: str = Field(default='', max_length=4000)
 
 
 def _case_error(exc: Exception) -> None:
@@ -136,7 +143,7 @@ def delete_document(filename: str, session_id: str = Depends(get_session_id)):
 def get_page_image(
     filename: str,
     page: int = Query(..., ge=1),
-    snippet: str = Query(""),
+    snippet: str = Query("", max_length=4000),
     session_id: str = Depends(get_session_id),
 ):
     """
@@ -168,7 +175,13 @@ def get_page_image(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    return Response(content=png_bytes, media_type="image/png")
+    return Response(content=png_bytes, media_type="image/png", headers={"Cache-Control": "no-store"})
+
+
+@router.post("/documents/{filename}/page")
+def post_page_image(filename: str, preview: PagePreviewRequest, session_id: str = Depends(get_session_id)):
+    """Render an owned page while keeping citation text out of the URL."""
+    return get_page_image(filename, preview.page, preview.snippet, session_id)
 
 
 @router.get("/documents/{filename}/intelligence")
