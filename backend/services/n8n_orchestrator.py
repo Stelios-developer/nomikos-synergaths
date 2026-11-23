@@ -134,12 +134,16 @@ def _post_case_workflow(filename: str, workspace_id: str, job_id=None, *,cancel_
             raise ValueError('invalid transport result')
         result=json.loads(completed.stdout)
         kind=result['kind']
+        if kind not in {'http', 'oversize', 'unavailable', 'unknown'}:
+            raise ValueError('invalid transport kind')
+        if kind == 'http' and (type(result.get('status')) is not int or not 100 <= result['status'] <= 599):
+            raise ValueError('invalid transport status')
     except Exception as exc:
         raise N8nOrchestratorError('The webhook transport did not confirm its outcome.',retryable=True,uncertain=True) from exc
-    if kind=='http' and 200<=int(result['status'])<300:
+    if kind=='http' and 200<=result['status']<300:
         return
     if kind=='http':
-        status=int(result['status'])
+        status=result['status']
         raise N8nOrchestratorError(f'n8n returned HTTP {status} while running the document workflow.',
                                   retryable=status>=500 or status==429,uncertain=status not in {401,403,404})
     if kind=='oversize':

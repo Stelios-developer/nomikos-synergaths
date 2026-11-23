@@ -117,6 +117,24 @@ def test_webhook_transport_does_not_use_environment_proxy(monkeypatch):
     assert seen == [('n8n.invalid', 5678)]
 
 
+@pytest.mark.parametrize('payload', [
+    b'{"kind":"http","status":true}',
+    b'{"kind":"http","status":"200"}',
+    b'{"kind":"http","status":700}',
+    b'{"kind":"http"}',
+    b'{"kind":"unexpected"}',
+])
+def test_invalid_transport_result_is_uncertain_and_never_success(monkeypatch, payload):
+    from subprocess import CompletedProcess
+    monkeypatch.setattr(bridge, 'N8N_ORCHESTRATOR_URL', 'http://n8n.invalid/webhook')
+    monkeypatch.setattr(security, 'N8N_WEBHOOK_API_KEY', 'synthetic-only')
+    monkeypatch.setattr(bridge.subprocess, 'run', lambda *args, **kwargs: CompletedProcess(args, 0, stdout=payload))
+    with pytest.raises(bridge.N8nOrchestratorError) as error:
+        bridge._post_case_workflow('synthetic.pdf', 'synthetic-workspace')
+    assert error.value.retryable is True
+    assert error.value.uncertain is True
+
+
 def test_real_http_response_is_bounded(monkeypatch):
     monkeypatch.setattr(bridge, "N8N_RESPONSE_LIMIT_BYTES", 1024)
     with upstream(monkeypatch, ["oversize"]) as received:
